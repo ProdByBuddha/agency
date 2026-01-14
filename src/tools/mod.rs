@@ -37,7 +37,7 @@ pub use science::ScienceTool;
 pub use models::ModelManager;
 pub use vision::VisionTool;
 pub use dynamic::{DynamicTool, ForgeTool};
-pub use a2a::PeerAgentTool;
+pub use a2a::{PeerAgentTool, RemoteAgencyTool, AnonymousAgencyTool};
 pub use mcp::{McpServer, McpProxyTool};
 pub use skills::{MarkdownSkill, SkillLoader};
 

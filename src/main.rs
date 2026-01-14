@@ -218,7 +218,8 @@ async fn main() -> Result<()> {
             tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Researcher, shared_supervisor.clone())),
             tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Reasoner, shared_supervisor.clone())),
             tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Reviewer, shared_supervisor.clone())),
-            tools.register_instance(rust_agency::tools::RemoteAgencyTool::new())
+            tools.register_instance(rust_agency::tools::RemoteAgencyTool::new()),
+            tools.register_instance(rust_agency::tools::AnonymousAgencyTool::new())
         );
     }
 

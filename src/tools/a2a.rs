@@ -173,9 +173,90 @@ impl Tool for PeerAgentTool {
                             json!({ "answer": res_body.answer }),
                             format!("Remote Response from {}:\n{}", url, res_body.answer)
                         ))
-                    } else {
-                        Ok(ToolOutput::failure(format!("Remote agency at {} returned error: {}", url, response.status())))
+                            } else {
+                                Ok(ToolOutput::failure(format!("Remote agency at {} returned error: {}", url, response.status())))
+                            }
+                        }
                     }
-                }
-            }
-            
+                    
+                    pub struct AnonymousAgencyTool {
+                        dialer: Arc<Mutex<Option<crate::orchestrator::arti_a2a::AnonymousDialer>>>,
+                    }
+                    
+                    impl AnonymousAgencyTool {
+                        pub fn new() -> Self {
+                            Self {
+                                dialer: Arc::new(Mutex::new(None)),
+                            }
+                        }
+                    }
+                    
+                    #[async_trait]
+                    impl Tool for AnonymousAgencyTool {
+                        fn name(&self) -> String {
+                            "dial_anonymous_agency".to_string()
+                        }
+                    
+                        fn description(&self) -> String {
+                            "Dial an external Agency server anonymously via Tor (Arti). \n            Ensures your host identity is hidden. The remote agency will only see your Capability Identity. \n            Use this for high-privacy collaborations.".to_string()
+                        }
+                    
+                        fn parameters(&self) -> Value {
+                            json!({
+                                "type": "object",
+                                "properties": {
+                                    "url": { "type": "string", "description": "The base URL or .onion address of the remote agency." },
+                                    "target_agent": { "type": "string", "enum": ["coder", "researcher", "reasoner", "chat"], "description": "The remote role to consult." },
+                                    "query": { "type": "string", "description": "The task or query for the remote agency." },
+                                    "capability_role": { "type": "string", "description": "The role you want to present as (e.g. 'Senior Auditor')." }
+                                },
+                                "required": ["url", "target_agent", "query"]
+                            })
+                        }
+                    
+                        fn work_scope(&self) -> Value {
+                            json!({
+                                "status": "stealth",
+                                "network": "tor/arti",
+                                "anonymity": "high",
+                                "protocol": "A2A/SNS/Onion"
+                            })
+                        }
+                    
+                        async fn execute(&self, params: Value) -> AgentResult<ToolOutput> {
+                            let url = params["url"].as_str().ok_or_else(|| AgentError::Validation("Missing URL".to_string()))?;
+                            let target_str = params["target_agent"].as_str().unwrap_or("chat");
+                            let query = params["query"].as_str().ok_or_else(|| AgentError::Validation("Missing query".to_string()))?;
+                            let cap_role = params["capability_role"].as_str().unwrap_or("Anonymous Agent");
+                    
+                            let target_agent = match target_str {
+                                "coder" => AgentType::Coder,
+                                "researcher" => AgentType::Researcher,
+                                "reasoner" => AgentType::Reasoner,
+                                _ => AgentType::GeneralChat,
+                            };
+                    
+                            let interaction = AgentInteraction::new(AgentType::GeneralChat, target_agent, query);
+                            
+                            // Lazy-init the Tor client
+                            let mut dialer_lock = self.dialer.lock().await;
+                            if dialer_lock.is_none() {
+                                *dialer_lock = Some(crate::orchestrator::arti_a2a::AnonymousDialer::new().await?);
+                            }
+                            let dialer = dialer_lock.as_ref().unwrap();
+                    
+                            let identity = crate::orchestrator::arti_a2a::CapabilityIdentity {
+                                role: cap_role.to_string(),
+                                credentials: vec!["standard-v1".to_string()],
+                                reputation_score: 0.95,
+                            };
+                    
+                            let response = dialer.anonymous_call(url, interaction, Some(identity)).await?;
+                    
+                            Ok(ToolOutput::success(
+                                json!({ "answer": response.answer }),
+                                format!("Anonymous Remote Response (via Tor):\n{}", response.answer)
+                            ))
+                        }
+                    }
+                    

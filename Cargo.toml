@@ -99,6 +99,10 @@ tokio-stream = "0.1.18"
 # PAI Pure Rust Core
 pai-core = { path = "Personal_AI_Infrastructure/rust/pai-core" }
 
+# Tor/Arti for Anonymous A2A
+arti-client = { path = "arti/crates/arti-client", features = ["full", "tokio", "native-tls"] }
+tor-rtcompat = { path = "arti/crates/tor-rtcompat", features = ["tokio", "native-tls"] }
+
 [dev-dependencies]
 tempfile = "3.23.0"
 tokio-test = "0.4"

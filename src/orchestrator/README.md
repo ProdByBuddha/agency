@@ -15,9 +15,12 @@ The central nervous system. It orchestrates the lifecycle of a query:
 - **Optimal Info Selection**: Implements Decision Sensitivity logic to resolve plan-critical uncertainties before execution.
 - **Scaling-Law Lens (SLL)**: Predicts task complexity and selects the smallest sufficient model to minimize resource consumption.
 
-## 🤝 A2A Collaboration (`a2a.rs`)
+## 🤝 A2A Collaboration (`a2a.rs`, `arti_a2a.rs`)
 
-Implements the Agent-to-Agent communication protocol. Agents can consult specialized peers (e.g., a Researcher consulting a Coder) via the `PeerAgentTool`, using **SNS** notation for recursive context passing without token bloat.
+Implements the Agent-to-Agent communication protocol. Agents can consult specialized peers locally via `PeerAgentTool` or remotely via `RemoteAgencyTool`.
+
+- **Anonymous Capability Dialing**: Uses **Tor (Arti)** to establish encrypted, identity-less tunnels for A2A. The `AnonymousAgencyTool` allows agents to interact with remote swarms without broadcasting their host identity, presenting only a **CapabilityIdentity** (role, reputation, and credentials).
+- **SNS Protocol**: High-efficiency recursive context passing.
 
 ## ⚖️ Governance & Audit
 

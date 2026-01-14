@@ -33,6 +33,7 @@ pub mod optimal_info;
 #[macro_use]
 pub mod event_bus;
 pub mod a2a;
+pub mod arti_a2a;
 
 pub use crate::agent::speaker_rs::Speaker;
 pub use supervisor::{Supervisor, SupervisorResult};
