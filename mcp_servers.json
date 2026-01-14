@@ -1,9 +1,3 @@
 {
-  "servers": [
-    {
-      "name": "sqlite",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sqlite", "--db", "agency_tools.db"]
-    }
-  ]
+  "servers": []
 }
