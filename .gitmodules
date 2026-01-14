@@ -22,3 +22,6 @@
 [submodule "arti"]
 	path = arti
 	url = https://gitlab.torproject.org/tpo/core/arti.git
+[submodule "dsgm"]
+	path = dsgm
+	url = https://github.com/prodbybuddha/dsgm
