@@ -19,3 +19,6 @@
 [submodule "Personal_AI_Infrastructure"]
 	path = Personal_AI_Infrastructure
 	url = https://github.com/danielmiessler/Personal_AI_Infrastructure
+[submodule "arti"]
+	path = arti
+	url = https://gitlab.torproject.org/tpo/core/arti.git
