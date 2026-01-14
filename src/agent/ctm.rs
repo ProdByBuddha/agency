@@ -102,6 +102,7 @@ impl ContinuousThoughtMachine {
                     answer: thought.clone(),
                     quality_score: 0.5,
                     risk_score: 0.1,
+                    novelty_score: 0.0,
                     cost_tokens: 0,
                     assurance: crate::orchestrator::AssuranceLevel::L0,
                     reward_score: None,

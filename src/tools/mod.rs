@@ -39,7 +39,8 @@ pub use dynamic::{DynamicTool, ForgeTool};
 pub use mcp::{McpServer, McpProxyTool};
 pub use skills::{MarkdownSkill, SkillLoader};
 
-use crate::agent::AgentResult;
+use crate::agent::{AgentResult, LadeQuadrant};
+use crate::orchestrator::AgencyEvent;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -286,6 +287,12 @@ impl ToolRegistry {
             Some(tool) => {
                 // SOTA Security Check
                 if !tool.security_oracle(&call.parameters).await? {
+                    // Emit FPF Boundary Crossing (A.6.B - Quadrant A: Admissibility)
+                    crate::emit_event!(AgencyEvent::BoundaryCrossing(crate::orchestrator::event_bus::FPFBoundClaim {
+                        quadrant: LadeQuadrant::A,
+                        claim_id: format!("GF-{}", call.name),
+                        content: format!("Security Oracle blocked execution of tool '{}'", call.name),
+                    }));
                     return Ok(ToolOutput::failure(format!("Security Oracle blocked execution of tool '{}'", call.name)));
                 }
                 tool.execute(call.parameters.clone()).await?

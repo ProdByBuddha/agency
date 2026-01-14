@@ -9,9 +9,14 @@ use std::sync::Arc;
 pub struct Candidate {
     pub agent_id: String,
     pub answer: String,
-    pub quality_score: f32, // q
-    pub risk_score: f32,    // r
-    pub cost_tokens: u32,   // c
+    /// Q - Quality/Use-Value (C.17)
+    pub quality_score: f32,
+    /// R - Risk/Constraint-Fit (C.17)
+    pub risk_score: f32,
+    /// N - Novelty (C.17)
+    pub novelty_score: f32,
+    /// C - Cost tokens (Resrc-CAL)
+    pub cost_tokens: u32,
     pub assurance: AssuranceLevel,
     /// Reward score provided by the Reinforcement Model (RLM)
     pub reward_score: Option<f32>,
@@ -75,9 +80,8 @@ Provide ONLY the numeric score."###,
 pub struct Gamma;
 
 impl Gamma {
-    /// FPF Standard: Pareto-Dominance Selection (BLP-2)
-    /// Given a portfolio, select the candidate that optimizes the Objective Vector.
-    /// Incorporates reward_score if available from a RewardModel.
+    /// FPF Standard: Pareto-Dominance Selection (A.0 - ParetoOnly default)
+    /// Given a portfolio, select the candidate that optimizes the N-U-C-D Objective Vector.
     pub fn select_pareto_winner(portfolio: &ResultPortfolio) -> Option<usize> {
         if portfolio.candidates.is_empty() { return None; }
 
@@ -85,13 +89,13 @@ impl Gamma {
         let mut max_score = -1.0;
 
         for (i, c) in portfolio.candidates.iter().enumerate() {
-            // Incorporate RLM Reward if present, otherwise fall back to quality_score
+            // Quality (U) x (1 - Risk (C)) x Novelty (N)
             let raw_quality = c.reward_score.unwrap_or(c.quality_score);
-
-            // Simple Pareto heuristic: Quality / (Risk * Cost_norm)
-            // Normalized cost: 1.0 + (tokens / 1000)
+            let constraint_fit = 1.0 - c.risk_score;
+            
+            // Score = U * C_fit * (1 + N) / Cost_norm
             let cost_norm = 1.0 + (c.cost_tokens as f32 / 1000.0);
-            let score = raw_quality / (c.risk_score.max(0.1) * cost_norm);
+            let score = (raw_quality * constraint_fit * (1.0 + c.novelty_score)) / cost_norm;
             
             if score > max_score {
                 max_score = score;

@@ -6,11 +6,24 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use std::sync::Arc;
+use crate::agent::{LadeQuadrant, PubCharacteristic};
+
+/// FPF-Aligned Claim Entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FPFBoundClaim {
+    pub quadrant: LadeQuadrant,
+    pub claim_id: String,
+    pub content: String,
+}
 
 /// Global Agency Events
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
 pub enum AgencyEvent {
+    /// FPF Boundary Crossing / Claim Event (A.6.B)
+    BoundaryCrossing(FPFBoundClaim),
+    /// FPF Publication Characteristic Update (E.17.5.5)
+    PublicationUpdate { pc: PubCharacteristic },
     /// Discovered a new Markdown skill
     SkillDiscovered { name: String, version: String },
     /// A skill was promoted to the standard set

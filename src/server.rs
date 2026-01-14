@@ -310,11 +310,13 @@ async fn dashboard(State(state): State<AppState>) -> impl IntoResponse {
                     currentPlainBlock.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
                     document.getElementById('plain-scroll').scrollTop = plainContent.scrollHeight;
                 }}
-            }} else if (data.startsWith('RELIABILITY:')) {{
+            else if (data.startsWith('RELIABILITY:')) {{
                 const val = parseFloat(data.substring(12));
                 rValue.textContent = val.toFixed(2);
                 logAssurance('Audit', 'R-Score: ' + val.toFixed(2));
-            }} else if (data.startsWith('ASSURANCE:')) {{ try {{ const a = JSON.parse(data.substring(10)); logAssurance('Telemetry', `Latency: ${{a.latency}}ms`); logAssurance('Telemetry', `Tool Calls: ${{a.tools}}`); logAssurance('Telemetry', `Evidence Nodes: ${{a.evidence}}`); logAssurance('Telemetry', `Scale Class: ${{a.scale}}`); logAssurance('Telemetry', `Model: ${{a.model}}`); document.getElementById('model-val').textContent = a.model; }} catch (err) {{}} }}
+            }} else if (data.startsWith('PUBLICATION_UPDATE:')) {{ try {{ const pc = JSON.parse(data.substring(19)); logAssurance('PC-Update', `${{pc.pc_type}}: ${{JSON.stringify(pc.value)}} ${{pc.unit || ''}} (Ed: ${{pc.edition}})`); }} catch (err) {{}} }}
+            else if (data.startsWith('BOUNDARY_CROSSING:')) {{ try {{ const claim = JSON.parse(data.substring(18)); logAssurance('Security', `🚨 [Quadrant ${{claim.quadrant}}] ${{claim.claim_id}}: ${{claim.content}}`, 'var(--accent-warn)'); }} catch (err) {{}} }}
+            else if (data.startsWith('ASSURANCE:')) {{ try {{ const a = JSON.parse(data.substring(10)); logAssurance('Telemetry', `Latency: ${{a.latency}}ms`); logAssurance('Telemetry', `Tool Calls: ${{a.tools}}`); logAssurance('Telemetry', `Evidence Nodes: ${{a.evidence}}`); logAssurance('Telemetry', `Scale Class: ${{a.scale}}`); logAssurance('Telemetry', `Model: ${{a.model}}`); document.getElementById('model-val').textContent = a.model; }} catch (err) {{}} }}
             else if (data.startsWith('STATE:MODEL:')) {{ document.getElementById('model-val').textContent = data.substring(12); }}
             else if (data.startsWith('STATE:')) {{
                 if (data.startsWith('STATE:ANSWER_START')) {{ isAnswerMode = true; currentPlainBlock = null; currentPlainRaw = ''; if (currentTechBlock) {{ const full = currentTechBlock.textContent; const match = full.match(/[[A-Z]ANSWER]*|ANSWER:?$/i); if (match) currentTechBlock.textContent = full.substring(0, match.index).trim(); }} }} 
@@ -330,9 +332,10 @@ async fn dashboard(State(state): State<AppState>) -> impl IntoResponse {
             }}
         }};
 
-        function logAssurance(source, msg) {{ 
+        function logAssurance(source, msg, color) {{ 
             const div = document.createElement('div');
             div.style.marginBottom = '5px';
+            if (color) div.style.color = color;
             div.innerHTML = `<span style="color:#333;">[${{new Date().toLocaleTimeString()}}]</span> <b>${{source}}:</b> ${{msg}}`;
             assuranceLog.appendChild(div);
             assuranceLog.scrollTop = assuranceLog.scrollHeight;
@@ -370,13 +373,38 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
     ws.on_upgrade(|socket| async move {
         let (mut sender, mut receiver) = socket.split();
         let mut rx = state.tx.subscribe();
+        let mut global_rx = crate::orchestrator::event_bus::AGENCY_EVENT_BUS.subscribe();
         
         let state_c = state.clone();
+        
+        // Forward turn-specific messages
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
                     Ok(msg) => { if sender.send(WsMessage::Text(msg.into())).await.is_err() { break; } },
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(_) => break,
+                }
+            }
+        });
+
+        // Forward global agency events (FPF Alignment)
+        let sender_c = state.tx.clone();
+        tokio::spawn(async move {
+            loop {
+                match global_rx.recv().await {
+                    Ok(event) => {
+                        let msg = match event {
+                            crate::orchestrator::event_bus::AgencyEvent::BoundaryCrossing(claim) => {
+                                format!("BOUNDARY_CROSSING:{}", serde_json::to_string(&claim).unwrap_or_default())
+                            },
+                            crate::orchestrator::event_bus::AgencyEvent::PublicationUpdate { pc } => {
+                                format!("PUBLICATION_UPDATE:{}", serde_json::to_string(&pc).unwrap_or_default())
+                            },
+                            _ => continue, // Ignore other internal events for now
+                        };
+                        if sender_c.send(msg).is_err() { break; }
+                    },
                     Err(_) => break,
                 }
             }

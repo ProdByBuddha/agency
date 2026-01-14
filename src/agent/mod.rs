@@ -28,6 +28,7 @@ pub use nqd::NQDPortfolio;
 
 use async_trait::async_trait;
 use thiserror::Error;
+use serde::{Serialize, Deserialize};
 
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -51,6 +52,30 @@ pub enum AgentError {
 
 /// Specialized Result for Agent operations
 pub type AgentResult<T> = std::result::Result<T, AgentError>;
+
+/// FPF Boundary Norm Quadrants (A.6.B)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LadeQuadrant {
+    /// L - Laws & Definitions (Truth-conditional content)
+    L,
+    /// A - Admissibility & Gates (Runtime entry predicates)
+    A,
+    /// D - Deontics & Commitments (Governance/Obligations)
+    D,
+    /// E - Work-Effects & Evidence (Observed outcomes)
+    E,
+}
+
+/// FPF Publication Characteristics (E.17.5.5)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PubCharacteristic {
+    pub pc_type: String, // PC.Number, PC.EvidenceBinding, etc.
+    pub value: serde_json::Value,
+    pub unit: Option<String>,
+    pub scale: Option<String>,
+    pub reference_plane: Option<String>,
+    pub edition: String,
+}
 
 /// Trait for specialized agents
 #[async_trait]

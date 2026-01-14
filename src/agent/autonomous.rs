@@ -135,6 +135,7 @@ impl AutonomousMachine {
                 answer: response.answer.clone(),
                 quality_score: if response.success { 0.9 } else { 0.1 },
                 risk_score: 0.1,
+                novelty_score: 0.0,
                 cost_tokens: 0,
                 assurance: crate::orchestrator::AssuranceLevel::L2,
                 reward_score: None,

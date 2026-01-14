@@ -10,7 +10,11 @@ use std::collections::VecDeque;
 use tracing::{info, warn};
 use futures_util::future::join_all;
 
-use crate::agent::{ReActAgent, AgentType, AgentConfig, LLMCache, LLMProvider, AutonomousMachine, AgentResponse, OllamaProvider, AgentResult, AgentError};
+use crate::agent::{
+    ReActAgent, AgentType, AgentConfig, LLMCache, LLMProvider, 
+    AutonomousMachine, AgentResponse, OllamaProvider, AgentResult, AgentError,
+    PubCharacteristic
+};
 use crate::agent::rl::ExperienceBuffer;
 use crate::memory::{Memory, EpisodicMemory};
 use crate::emit_event;
@@ -379,6 +383,7 @@ impl Supervisor {
                             answer: res.answer.clone(),
                             quality_score: if res.success { 0.9 } else { 0.1 },
                             risk_score: 0.1,
+                            novelty_score: 0.0, // Default for non-diverse agents
                             cost_tokens: res.cost_tokens,
                             assurance: crate::orchestrator::AssuranceLevel::L1,
                             reward_score: None,
@@ -425,7 +430,20 @@ impl Supervisor {
         }
 
         let final_res = final_res.ok_or_else(|| AgentError::Execution("All execution attempts and escalations failed".to_string()))?;
-        
+        let latency_ms = _work_start_time.elapsed().as_millis();
+
+        // Emit FPF-Aligned Publication Characteristics (E.17.5.5)
+        emit_event!(AgencyEvent::PublicationUpdate {
+            pc: PubCharacteristic {
+                pc_type: "PC.Number".to_string(),
+                value: serde_json::json!(latency_ms),
+                unit: Some("ms".to_string()),
+                scale: Some("Ratio".to_string()),
+                reference_plane: Some("world".to_string()),
+                edition: "2026-01-14".to_string(),
+            }
+        });
+
         let mut work = crate::orchestrator::WorkRecord::new(
             "DirectTask".to_string(), 
             format!("{:?}", final_routing.candidate_agents)
