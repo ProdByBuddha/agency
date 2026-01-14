@@ -73,6 +73,15 @@
       "description": "Qwen 2.5 Coder 0.5B (F16) - Tiny specialized coding model in full precision."
     },
     {
+      "name": "qwen2.5-coder:32b-q4",
+      "repo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+      "revision": "main",
+      "tokenizer_repo": "Qwen/Qwen2.5-Coder-32B-Instruct",
+      "is_quantized": true,
+      "quant_file": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+      "description": "Qwen 2.5 Coder 32B (Q4) - SOTA open coding model, highly recommended for Solidity and complex logic."
+    },
+    {
       "name": "moondream2",
       "repo": "santiagomed/candle-moondream",
       "revision": "main",
