@@ -25,3 +25,6 @@
 [submodule "dsgm"]
 	path = dsgm
 	url = https://github.com/prodbybuddha/dsgm
+[submodule "infra-as-an-organism"]
+	path = infra-as-an-organism
+	url = https://github.com/prodbybuddha/infra-as-an-organism
