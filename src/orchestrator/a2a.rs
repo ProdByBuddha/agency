@@ -9,8 +9,7 @@ use tokio::sync::Mutex;
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::agent::{AgentType, AgentResponse, AgentResult, AgentError};
-use crate::orchestrator::sns::get_sns_system_prompt;
+use crate::agent::{AgentType, AgentResponse, AgentResult};
 use crate::orchestrator::Supervisor;
 
 /// FPF-aligned Agent Interaction (A.1)
@@ -53,15 +52,52 @@ impl A2ABridge {
     pub async fn peer_call(&self, interaction: AgentInteraction) -> AgentResult<AgentResponse> {
         let mut supervisor = self.supervisor.lock().await;
         
-        // 1. Prepare A2A-specific context
-        let mut a2a_context = format!(
-            "\n<|im_start|>system\nDIRECT PEER CALL [ID: {}]\nSOURCE: {{:?}}\nTARGET: {{:?}}\n",
-            interaction.interaction_id, interaction.source_agent, interaction.target_agent
-        );
+                // 1. Prepare A2A-specific context
         
-        a2a_context.push_str("INSTRUCTION: You are being consulted as a peer. Use SNS for the response if possible.\n");
+                let mut a2a_context = format!(
         
-        if !interaction.trace_context.is_empty() {
-            a2a_context.push_str("RELEVANT TRACE:\n");
-            for trace in interaction.trace_context {
-                a2a_context.push_str(&format!(
+                    "\n<|im_start|>system\nDIRECT PEER CALL [ID: {}]\nSOURCE: {:?}\nTARGET: {:?}\n",
+        
+                    interaction.interaction_id, interaction.source_agent, interaction.target_agent
+        
+                );
+        
+                
+        
+                a2a_context.push_str("INSTRUCTION: You are being consulted as a peer. Use SNS for the response if possible.\n");
+        
+                
+        
+                if !interaction.trace_context.is_empty() {
+        
+                    a2a_context.push_str("RELEVANT TRACE:\n");
+        
+                    for trace in interaction.trace_context {
+        
+                        a2a_context.push_str(&format!("- {}\n", trace));
+        
+                    }
+        
+                }
+        
+                a2a_context.push_str("<|im_end|>\n");
+        
+        
+        
+                // 2. Delegate to Supervisor's peer handling
+        
+                supervisor.handle_peer_request(
+        
+                    interaction.target_agent,
+        
+                    &interaction.payload,
+        
+                    Some(&a2a_context)
+        
+                ).await
+        
+            }
+        
+        }
+        
+        

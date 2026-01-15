@@ -11,7 +11,7 @@ use tracing::{info, warn};
 use futures_util::future::join_all;
 
 use crate::agent::{
-    ReActAgent, AgentType, AgentConfig, LLMCache, LLMProvider, 
+    ReActAgent, AgentType, AgentConfig, LLMCache, LLMProvider, Agent,
     AutonomousMachine, AgentResponse, OllamaProvider, AgentResult, AgentError,
     PubCharacteristic
 };
@@ -512,11 +512,8 @@ impl Supervisor {
         let provider = self.create_cached_provider();
         let tools = self.tools.clone();
         
-        let mut agent = ReActAgent::new_with_provider(provider, config, tools)
-            .with_hooks(self.pai_hooks.clone())
-            .with_memory_manager(self.pai_memory.clone())
-            .with_recovery(self.recovery.clone());
-            
+        let agent = ReActAgent::new_with_provider(provider, config, tools);
+
         agent.execute(query, Some(&full_context)).await
     }
 

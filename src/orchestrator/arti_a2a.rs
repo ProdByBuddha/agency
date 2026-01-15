@@ -60,7 +60,8 @@ impl AnonymousDialer {
                 // In a real production setup, we'd use a SOCKS5 proxy provided by Arti
                 // or use arti's native connect methods. 
                 // Arti usually provides a SOCKS proxy at a local port.
-                Some("socks5h://127.0.0.1:9150".parse().unwrap()) 
+                let url: reqwest::Url = "socks5h://127.0.0.1:9150".parse().unwrap();
+                Some(url) 
             }))
             .build()
             .map_err(|e| AgentError::Tool(format!("Failed to build proxy client: {}", e)))?;

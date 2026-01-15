@@ -95,10 +95,16 @@ async fn main() -> Result<()> {
     }
 
     if std::env::var("AGENCY_ENABLE_MOUTH").unwrap_or_default() == "1" {
-        tokio::spawn(async move {
-            if let Err(e) = rust_agency::services::speaker::run_speaker_server().await {
-                eprintln!("❌ Speaker Server crashed: {}", e);
-            }
+        std::thread::spawn(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                if let Err(e) = rust_agency::services::speaker::run_speaker_server().await {
+                    eprintln!("❌ Speaker Server crashed: {}", e);
+                }
+            });
         });
 
         let client = reqwest::Client::new();
@@ -119,12 +125,17 @@ async fn main() -> Result<()> {
     }
 
     if std::env::var("AGENCY_ENABLE_EARS").unwrap_or_default() == "1" {
-        tokio::spawn(async move {
-            if let Err(e) = rust_agency::services::listener::run_listener_server().await {
-                eprintln!("❌ Listener Server crashed: {}", e);
-            }
+        std::thread::spawn(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                if let Err(e) = rust_agency::services::listener::run_listener_server().await {
+                    eprintln!("❌ Listener Server crashed: {}", e);
+                }
+            });
         });
-        // Listener doesn't have a health endpoint yet, but it's okay to spawn it and move on
     }
 
     // Check for CLI arguments
@@ -273,7 +284,7 @@ async fn main() -> Result<()> {
     // SOTA: Register A2A Peer Tools (Agent-to-Agent)
     // Allows agents to consult specialized peers (Coder, Researcher, etc.)
     {
-        let mut supervisor_guard = shared_supervisor.lock().await;
+        let supervisor_guard = shared_supervisor.lock().await;
         let tools = supervisor_guard.tools.clone();
         tokio::join!(
             tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Coder, shared_supervisor.clone())),

@@ -4,10 +4,10 @@ use axum::{
     Router,
 };
 use anyhow::Result;
-use crate::memory::{Memory, MemoryEntry, vector::LocalVectorMemory, EpisodicMemory};
+use crate::memory::{Memory, MemoryEntry, vector::LocalVectorMemory};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{info, debug};
+use tracing::info;
 use std::env;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};

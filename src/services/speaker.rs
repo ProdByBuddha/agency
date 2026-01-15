@@ -1,9 +1,9 @@
-use axum,{
+use axum::{
     extract::State,
     routing::{post, get},
     Json, Router,
 };
-use anyhow::{Result, Context};
+use anyhow::Result;
 use candle_core::{Device, Tensor};
 use candle_nn::Embedding;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokenizers::Tokenizer;
-use tracing::{info, warn, error, debug};
+use tracing::{info, error, debug};
 use serde::Deserialize;
 use std::env;
 
@@ -220,8 +220,8 @@ impl AudioEngine {
 }
 
 #[derive(Deserialize)]
-struct SayRequest {
-    text: String,
+pub struct SayRequest {
+    pub text: String,
 }
 
 pub async fn run_speaker_server() -> Result<()> {
@@ -251,7 +251,6 @@ pub async fn run_speaker_server() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
 
-    Ok(()); // Need to keep _stream alive
     Ok(())
 }
 

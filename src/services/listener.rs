@@ -147,10 +147,10 @@ async fn process_speech(pcm: Vec<f32>, in_sample_rate: usize, state: Arc<Listene
 
     let text = text.trim();
     if text.is_empty() || text.len() < 2 {
-        return Ok ()
+        return Ok (());
     }
 
-    info!("💬 Transcribed: \"{}"", text);
+    info!("💬 Transcribed: \"{}\"", text);
 
     let _ = state.client.post(NEXUS_URL)
         .json(&json!({
@@ -165,7 +165,7 @@ async fn process_speech(pcm: Vec<f32>, in_sample_rate: usize, state: Arc<Listene
 
 fn transcribe_sync(
     model: &mut WhisperModel,
-    tokenizer: &tokenizers::Tokenizer,
+    tokenizer: &Tokenizer,
     config: &Config,
     mel_filters: &[f32],
     pcm: &[f32],
