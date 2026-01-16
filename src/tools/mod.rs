@@ -24,6 +24,7 @@ mod a2a;
 mod task_spawner;
 mod watchdog;
 mod notify;
+mod swarm_bounty;
 
 pub use web_search::WebSearchTool;
 pub use speaker_rs::SpeakerRsTool;
@@ -46,6 +47,7 @@ pub use skills::{MarkdownSkill, SkillLoader};
 pub use task_spawner::TaskSpawnerTool;
 pub use watchdog::WatchdogTool;
 pub use notify::NotifyTool;
+pub use swarm_bounty::SwarmBountyTool;
 
 use crate::agent::{AgentResult, LadeQuadrant};
 use crate::orchestrator::AgencyEvent;

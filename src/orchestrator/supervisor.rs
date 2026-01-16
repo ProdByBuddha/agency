@@ -90,6 +90,8 @@ impl Supervisor {
         tools.register_instance(crate::tools::WatchdogTool::new(sensory.clone())).await;
         // Register the NotifyTool to enable Vocal Cords
         tools.register_instance(crate::tools::NotifyTool::new(vocal_cords.clone())).await;
+        // Register the SwarmBountyTool to enable Hive Intelligence
+        tools.register_instance(crate::tools::SwarmBountyTool::new(task_queue.clone())).await;
 
         // Start default project file sensor (FPF Grounding)
         let _ = sensory.watch_file(".").await;
@@ -156,6 +158,51 @@ impl Supervisor {
                             error!("Supervisor Worker: Autonomous task failed: {}", e);
                             let _ = self.task_queue.fail(&task.id, &e.to_string(), true).await;
                             return Ok(true);
+                        }
+                    }
+                }
+
+                if task.kind == "memory_consolidation" {
+                    info!("Supervisor Worker: Performing memory consolidation (Dreaming)...");
+                    if let Some(ref memory) = self.memory {
+                        let _ = memory.consolidate().await;
+                        let _ = memory.persist().await;
+                    }
+                }
+
+                if task.kind == "swarm_bounty" {
+                    info!("Supervisor Worker: Broadcasting bounty to the global Hive Mind...");
+                    // In a real SOTA implementation, we'd dial a known Onion 'Job Board'
+                    // For this prototype, we'll simulate the Tor dialing via the AnonymousDialer.
+                    if let Ok(dialer) = crate::orchestrator::arti_a2a::AnonymousDialer::new().await {
+                        // Prototype Target: A hypothetical public Agency Hive node
+                        let hive_url = "http://agencyhive.onion"; 
+                        let payload: serde_json::Value = serde_json::from_str(&task.payload).unwrap_or_default();
+                        let goal = payload["goal"].as_str().unwrap_or("Unknown Task");
+                        
+                        let interaction = crate::orchestrator::a2a::AgentInteraction::new(
+                            AgentType::GeneralChat,
+                            AgentType::Reasoner,
+                            goal
+                        );
+
+                        match dialer.anonymous_call(hive_url, interaction, None).await {
+                            Ok(res) => {
+                                info!("Supervisor Worker: Swarm response received! Saving to memory.");
+                                if let Some(ref memory) = self.memory {
+                                    let mut entry = crate::memory::MemoryEntry::new(
+                                        format!("Swarm Result for '{}':\n{}", goal, res.answer),
+                                        "GlobalSwarm",
+                                        crate::memory::entry::MemorySource::Agent
+                                    );
+                                    let _ = memory.store(entry).await;
+                                }
+                            },
+                            Err(e) => {
+                                warn!("Supervisor Worker: Swarm broadcast failed (Retrying later): {}", e);
+                                let _ = self.task_queue.fail(&task.id, &e.to_string(), true).await;
+                                return Ok(true);
+                            }
                         }
                     }
                 }

@@ -69,8 +69,8 @@ impl AgencyScheduler {
         self.add_habit(
             "Daily Dreaming", 
             "0 0 0 * * *", 
-            "autonomous_goal", 
-            json!("Review today's logs and memories. Consolidate key insights into new permanent notes.")
+            "memory_consolidation", 
+            json!({})
         ).await?;
 
         Ok(())

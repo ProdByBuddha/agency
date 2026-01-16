@@ -38,6 +38,9 @@ pub trait Memory: Send + Sync {
     /// Persist memory to disk
     async fn persist(&self) -> Result<()>;
 
+    /// Consolidate cold memories (dreaming)
+    async fn consolidate(&self) -> Result<usize>;
+
     /// Clear transient caches to free up RAM
     #[allow(dead_code)]
     async fn clear_cache(&self) -> Result<()>;

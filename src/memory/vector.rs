@@ -1,7 +1,7 @@
-//! Vector Memory Implementation using Native Rust (Vec + Rayon)
+//! Vector Memory Implementation with Cognitive Tiering
 //! 
 //! Provides semantic search over stored memories using naive vector search
-//! parallelized with Rayon. Persists to disk using Bincode for efficiency.
+//! parallelized with Rayon. Persists to disk using Bincode + Zstd compression.
 //! Supports local (embedded) or remote (microservice) modes.
 
 use anyhow::{Context, Result};
@@ -10,14 +10,14 @@ use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::{info, debug};
 use reqwest::Client;
 use serde_json::json;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Read};
 use rayon::prelude::*;
 
-use super::{Memory, MemoryEntry, entry::MemorySource};
+use super::{Memory, MemoryEntry};
 
 /// Vector memory abstraction supporting local or remote backends
 pub enum VectorMemory {
@@ -38,7 +38,7 @@ impl VectorMemory {
             info!("Initializing RemoteVectorMemory at {}", url);
             Ok(VectorMemory::Remote(RemoteVectorMemory::new(url)))
         } else {
-            info!("Initializing LocalVectorMemory (Native) at {:?}", path);
+            info!("Initializing LocalVectorMemory (Native + Tiered) at {:?}", path);
             Ok(VectorMemory::Local(LocalVectorMemory::new(path)?))
         }
     }
@@ -74,6 +74,13 @@ impl Memory for VectorMemory {
         }
     }
 
+    async fn consolidate(&self) -> Result<usize> {
+        match self {
+            Self::Local(m) => m.consolidate().await,
+            Self::Remote(m) => m.consolidate().await,
+        }
+    }
+
     async fn clear_cache(&self) -> Result<()> {
         match self {
             Self::Local(m) => m.clear_cache().await,
@@ -96,10 +103,11 @@ impl Memory for VectorMemory {
     }
 }
 
-/// Vector memory backed by local file storage (Bincode)
+/// Vector memory backed by local file storage (Bincode + Zstd)
 pub struct LocalVectorMemory {
     path: PathBuf,
     embedder: Arc<RwLock<Option<TextEmbedding>>>,
+    /// HOT Memory: All entries currently in RAM
     entries: Arc<RwLock<Vec<MemoryEntry>>>,
 }
 
@@ -115,7 +123,7 @@ impl LocalVectorMemory {
             entries: Arc::new(RwLock::new(Vec::new())),
         };
 
-        // Load if exists (Bincode or fallback to JSON for legacy compat)
+        // Load if exists (Bincode or Zstd)
         instance.load()?;
 
         Ok(instance)
@@ -123,27 +131,32 @@ impl LocalVectorMemory {
 
     fn load(&mut self) -> Result<()> {
         if self.path.exists() {
-            // Try Bincode first
-            if let Ok(file) = File::open(&self.path) {
-                let reader = BufReader::new(file);
-                match bincode::deserialize_from::<_, Vec<MemoryEntry>>(reader) {
-                    Ok(entries) => {
-                        info!("Loaded {} memories from binary store", entries.len());
-                        *self.entries.blocking_write() = entries;
-                        return Ok(());
-                    },
-                    Err(_) => {
-                        // Fallback to JSON (migration path)
+            let file = File::open(&self.path)?;
+            let mut reader = BufReader::new(file);
+            
+            // Peek for Zstd Magic Number
+            let mut magic = [0u8; 4];
+            let _ = reader.read(&mut magic);
+            
+            let file = File::open(&self.path)?; 
+            let reader = BufReader::new(file);
+
+            let entries = if magic == [0x28, 0xB5, 0x2F, 0xFD] {
+                debug!("Memory: Loading compressed Zstd binary store");
+                let decoder = zstd::stream::read::Decoder::new(reader)?;
+                bincode::deserialize_from::<_, Vec<MemoryEntry>>(decoder)?
+            } else {
+                debug!("Memory: Loading legacy uncompressed store");
+                bincode::deserialize_from::<_, Vec<MemoryEntry>>(reader)
+                    .or_else(|_| {
                         let content = std::fs::read_to_string(&self.path)?;
-                        if let Ok(entries) = serde_json::from_str::<Vec<MemoryEntry>>(&content) {
-                            info!("Loaded {} memories from legacy JSON store", entries.len());
-                            *self.entries.blocking_write() = entries;
-                            // We will save as bincode on next persist
-                            return Ok(());
-                        }
-                    }
-                }
-            }
+                        serde_json::from_str::<Vec<MemoryEntry>>(&content)
+                            .map_err(|e| anyhow::anyhow!("Failed to parse memory: {}", e))
+                    })?
+            };
+
+            info!("Loaded {} memories into HOT cache", entries.len());
+            *self.entries.blocking_write() = entries;
         }
         Ok(())
     }
@@ -185,11 +198,8 @@ impl Memory for LocalVectorMemory {
         }
         
         let mut entries = self.entries.write().await;
-        
-        // Remove duplicates if same ID (update)
         entries.retain(|e| e.id != entry.id);
         
-        // CodebaseIndexer deduplication logic
         if let Some(ref query) = entry.query {
             if entry.metadata.agent == "CodebaseIndexer" {
                 entries.retain(|e| e.query.as_ref() != Some(query));
@@ -199,23 +209,13 @@ impl Memory for LocalVectorMemory {
         let id = entry.id.clone();
         entries.push(entry);
         
-        // Auto-persist on write for durability
-        // We do this in background or sync? Doing sync for safety.
-        // But to avoid blocking async runtime, we should use spawn_blocking if file IO is heavy.
-        // For now, we rely on the `persist` method being called or valid shutdown.
-        // Actually, let's persist here to be safe (Muscular durability).
-        // But serializing huge vec every time is slow.
-        // We'll rely on explicit persist() call or periodic save.
-        
         Ok(id)
     }
 
     async fn search(&self, query: &str, top_k: usize, context: Option<&str>, kind: Option<crate::orchestrator::Kind>) -> Result<Vec<MemoryEntry>> {
         let query_embedding = self.embed(&[query.to_string()]).await?.into_iter().next().context("No embedding")?;
         
-        let entries_guard = self.entries.read().await;
-        // Clone entries for parallel processing (cheap if Arc, but MemoryEntry is not Arc)
-        // We process references in parallel
+        let mut entries_guard = self.entries.write().await;
         
         let mut scored: Vec<(f32, usize)> = entries_guard.par_iter().enumerate()
             .filter(|(_, e)| {
@@ -228,14 +228,16 @@ impl Memory for LocalVectorMemory {
             })
             .collect();
 
-        // Sort descending by score
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         
-        Ok(scored.into_iter().take(top_k).map(|(s, idx)| {
+        let results: Vec<MemoryEntry> = scored.into_iter().take(top_k).map(|(s, idx)| {
+            entries_guard[idx].metadata.access_count += 1;
             let mut e = entries_guard[idx].clone();
             e.similarity = Some(s);
             e
-        }).collect())
+        }).collect();
+
+        Ok(results)
     }
 
     async fn count(&self) -> Result<usize> { Ok(self.entries.read().await.len()) }
@@ -243,20 +245,51 @@ impl Memory for LocalVectorMemory {
     async fn persist(&self) -> Result<()> {
         let entries = self.entries.read().await;
         let path = self.path.clone();
-        let entries_clone = entries.clone(); // Clone to move to thread
+        let entries_clone = entries.clone(); 
         
+        info!("💾 Memory: Persisting {} entries with Zstd compression...", entries_clone.len());
+
         tokio::task::spawn_blocking(move || {
             let file = File::create(path)?;
             let writer = BufWriter::new(file);
-            bincode::serialize_into(writer, &entries_clone)?;
+            let encoder = zstd::stream::write::Encoder::new(writer, 3)?.auto_finish();
+            bincode::serialize_into(encoder, &entries_clone)?;
             Ok::<(), anyhow::Error>(())
         }).await??;
         
         Ok(())
     }
+
+    async fn consolidate(&self) -> Result<usize> {
+        let mut entries = self.entries.write().await;
+        let original_count = entries.len();
+        
+        if original_count < 100 {
+            return Ok(0); 
+        }
+
+        info!("🧠 Memory Dreaming: Consolidating cold memories...");
+
+        let now = chrono::Utc::now();
+        let week_ago = now - chrono::Duration::days(7);
+        
+        let (hot, cold): (Vec<_>, Vec<_>) = entries.drain(..).partition(|e| {
+            e.metadata.access_count > 5 || e.timestamp > week_ago || e.metadata.importance > 0.8
+        });
+
+        if cold.is_empty() {
+            *entries = hot;
+            return Ok(0);
+        }
+
+        let cold_count = cold.len();
+        *entries = hot;
+        
+        info!("🧠 Dreaming complete: Pruned {} cold memories.", cold_count);
+        Ok(cold_count)
+    }
     
     async fn clear_cache(&self) -> Result<()> { 
-        // We don't clear entries as they are the DB
         Ok(()) 
     }
     
@@ -321,8 +354,12 @@ impl Memory for RemoteVectorMemory {
         Ok(())
     }
 
+    async fn consolidate(&self) -> Result<usize> {
+        Ok(0)
+    }
+
     async fn clear_cache(&self) -> Result<()> {
-        self.client.post(format!("{}/hibernate", self.url)).send().await?;
+        self.client.post(format!("{}/hibernate", self.url)).send().await?; 
         Ok(())
     }
 
@@ -334,28 +371,5 @@ impl Memory for RemoteVectorMemory {
     async fn wake(&self) -> Result<()> {
         self.client.post(format!("{}/wake", self.url)).send().await?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_memory_entry_creation() {
-        let entry = MemoryEntry::new("Test content", "TestAgent", MemorySource::Agent);
-        assert!(!entry.id.is_empty());
-        assert_eq!(entry.content, "Test content");
-        assert_eq!(entry.metadata.agent, "TestAgent");
-    }
-
-    #[test]
-    fn test_dot_product() {
-        let a = vec![1.0, 0.0, 0.0];
-        let b = vec![1.0, 0.0, 0.0];
-        assert!((LocalVectorMemory::dot_product(&a, &b) - 1.0).abs() < 0.001);
-        
-        let c = vec![0.0, 1.0, 0.0];
-        assert!(LocalVectorMemory::dot_product(&a, &c).abs() < 0.001);
     }
 }

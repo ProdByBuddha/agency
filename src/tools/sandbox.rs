@@ -2,6 +2,7 @@
 //! 
 //! Provides a unified interface for executing code and managing files
 //! across different backends (Local Docker, Daytona, E2B).
+//! Now leverages the centralized Immune System (Seatbelt).
 
 use async_trait::async_trait;
 use bollard::container::LogOutput;
@@ -17,6 +18,7 @@ use serde_json::{json, Value};
 use tracing::{info, warn};
 
 use crate::agent::{AgentResult, AgentError};
+use crate::utils::sandbox::TOOL_SANDBOX_POLICY;
 use super::{Tool, ToolOutput};
 
 /// Backend providers for the sandbox
@@ -28,29 +30,6 @@ pub enum SandboxProvider {
     Daytona,
     E2B,
 }
-
-/// MacOS Seatbelt Policy Constants
-#[cfg(target_os = "macos")]
-const MACOS_SEATBELT_BASE_POLICY: &str = r#"
-(version 1)
-(deny default)
-(allow process-exec)
-(allow process-fork)
-(allow signal (target same-sandbox))
-(allow user-preference-read)
-(allow process-info* (target same-sandbox))
-(allow file-read* (subpath "/usr/lib"))
-(allow file-read* (subpath "/usr/share"))
-(allow file-read* (subpath "/System/Library"))
-(allow file-read* (subpath "/Library/Managed Preferences"))
-(allow file-read* (literal "/dev/null"))
-(allow file-read* (literal "/dev/urandom"))
-(allow file-read* (subpath "/private/var/db/timezone"))
-(allow file-read* (subpath "/usr/bin"))
-(allow sysctl-read)
-(allow mach-lookup (global-name "com.apple.system.opendirectoryd.libinfo"))
-(allow ipc-posix-sem)
-"#;
 
 /// Unified Sandbox Tool
 pub struct SandboxTool {
@@ -78,22 +57,15 @@ impl SandboxTool {
         std::fs::write(&script_path, code)
             .map_err(|e| AgentError::Io(e))?;
 
-        // Build the policy
-        let mut policy = String::from(MACOS_SEATBELT_BASE_POLICY);
-        
-        // Allow reading and writing to the temp directory
+        let workspace_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let canonical_temp = temp_dir.path().canonicalize()
             .map_err(|e| AgentError::Io(e))?;
-        policy.push_str(&format!(
-            "(allow file-read* file-write* (subpath \"{}\"))\n",
-            canonical_temp.to_string_lossy()
-        ));
 
-        // Allow reading common language runtimes (simplification)
-        policy.push_str("(allow file-read* (subpath \"/usr/local/bin\"))\n");
-        policy.push_str("(allow file-read* (subpath \"/opt/homebrew\"))\n");
-
-        let mut cmd_args = vec!["-p".to_string(), policy, "--".to_string()];
+        let mut cmd_args = vec![
+            "-p".to_string(), TOOL_SANDBOX_POLICY.to_string(),
+            "-D".to_string(), format!("WORKSPACE_DIR={}", workspace_dir.to_string_lossy()),
+            "--".to_string(),
+        ];
         
         let run_cmd = match language {
             "python" => vec!["python3".to_string(), script_path.to_string_lossy().to_string()],
@@ -236,7 +208,7 @@ EOF", filename, escaped_code);
         // 5. Cleanup
         let _ = docker.remove_container(&container_name, Some(RemoveContainerOptions { force: true, ..Default::default() })).await;
 
-        if stderr.is_empty() || !stdout.is_empty() {
+        if stderr.is_empty() || !stdout.is_empty() { 
              Ok(ToolOutput::success(
                 json!({ "stdout": stdout, "stderr": stderr }),
                 format!("Execution Output:\n{}", stdout)
@@ -271,7 +243,8 @@ impl Tool for SandboxTool {
     }
 
     fn description(&self) -> String {
-        "Advanced isolated execution environment. Supports 'run' for Python, Rust, JS, and Shell. \n        Code MUST print results to stdout. Scripts are executed as standalone files inside a clean container.".to_string()
+        "Advanced isolated execution environment. Supports 'run' for Python, Rust, JS, and Shell. 
+        Code MUST print results to stdout. Scripts are executed as standalone files inside a clean container.".to_string()
     }
 
     fn parameters(&self) -> Value {
