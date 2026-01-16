@@ -21,6 +21,7 @@ mod vision;
 mod mcp;
 mod skills;
 mod a2a;
+mod task_spawner;
 
 pub use web_search::WebSearchTool;
 pub use speaker_rs::SpeakerRsTool;
@@ -40,6 +41,7 @@ pub use dynamic::{DynamicTool, ForgeTool};
 pub use a2a::{PeerAgentTool, RemoteAgencyTool, AnonymousAgencyTool};
 pub use mcp::{McpServer, McpProxyTool};
 pub use skills::{MarkdownSkill, SkillLoader};
+pub use task_spawner::TaskSpawnerTool;
 
 use crate::agent::{AgentResult, LadeQuadrant};
 use crate::orchestrator::AgencyEvent;

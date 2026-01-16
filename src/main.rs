@@ -331,19 +331,21 @@ async fn main() -> Result<()> {
         });
     }
 
-    // SOTA: Register A2A Peer Tools (Agent-to-Agent)
-    // Allows agents to consult specialized peers (Coder, Researcher, etc.)
+    // ──────────────────────────────────────────────────────────────────────────
+    // SCHEDULER: Circadian Rhythm
+    // ──────────────────────────────────────────────────────────────────────────
     {
         let supervisor_guard = shared_supervisor.lock().await;
-        let tools = supervisor_guard.tools.clone();
-        tokio::join!(
-            tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Coder, shared_supervisor.clone())),
-            tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Researcher, shared_supervisor.clone())),
-            tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Reasoner, shared_supervisor.clone())),
-            tools.register_instance(rust_agency::tools::PeerAgentTool::new(rust_agency::AgentType::Reviewer, shared_supervisor.clone())),
-            tools.register_instance(rust_agency::tools::RemoteAgencyTool::new()),
-            tools.register_instance(rust_agency::tools::AnonymousAgencyTool::new())
-        );
+        let queue = supervisor_guard.task_queue.clone();
+        drop(supervisor_guard);
+
+        let scheduler = rust_agency::orchestrator::scheduler::AgencyScheduler::new(queue)
+            .await
+            .expect("Failed to init scheduler");
+        
+        scheduler.init_defaults().await.expect("Failed to init habits");
+        scheduler.start().await.expect("Failed to start scheduler");
+        println!("⏰ Circadian Rhythm active.");
     }
 
     let (tx, _) = broadcast::channel(1024);

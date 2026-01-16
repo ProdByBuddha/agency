@@ -104,6 +104,23 @@ impl App {
             });
             return;
         }
+
+        if query.starts_with("/queue ") {
+            let task_description = query.strip_prefix("/queue ").unwrap().trim().to_string();
+            tokio::spawn(async move {
+                let guard = supervisor.lock().await;
+                let payload_json = serde_json::json!(task_description);
+                match guard.schedule_task("autonomous_goal", payload_json).await {
+                    Ok(id) => {
+                        let _ = tx.send(AppEvent::Response(format!("Task Scheduled! ID: {}", id), None)).await;
+                    },
+                    Err(e) => {
+                        let _ = tx.send(AppEvent::Error(format!("Failed to schedule task: {}", e))).await;
+                    }
+                }
+            });
+            return;
+        }
         
         tokio::spawn(async move {
             let mut guard = supervisor.lock().await;
@@ -323,7 +340,7 @@ fn ui(f: &mut Frame, app: &App) {
     f.render_widget(input, chunks[1]);
 
     // Footer
-    let help_text = format!(" ESC: Quit | ENTER: Send/Steer | PID: {} | SOTA v0.2.0 ", std::process::id());
+    let help_text = format!(" ESC: Quit | /queue <goal>: Schedule Task | PID: {} | SOTA v0.2.0 ", std::process::id());
     let footer = Paragraph::new(help_text)
         .style(Style::default().fg(Color::DarkGray));
     f.render_widget(footer, chunks[2]);

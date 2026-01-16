@@ -78,6 +78,9 @@ impl Supervisor {
         let queue_path = std::env::var("AGENCY_TASK_DB").unwrap_or_else(|_| "agency_tasks.db".to_string());
         let task_queue = Arc::new(SqliteTaskQueue::new(queue_path).await.expect("Failed to initialize task queue"));
 
+        // Register the TaskSpawnerTool to enable Cellular Division
+        tools.register_instance(crate::tools::TaskSpawnerTool::new(task_queue.clone())).await;
+
         Self {
             hw_lock: provider.get_lock(),
             provider,
