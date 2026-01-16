@@ -23,6 +23,7 @@ mod skills;
 mod a2a;
 mod task_spawner;
 mod watchdog;
+mod notify;
 
 pub use web_search::WebSearchTool;
 pub use speaker_rs::SpeakerRsTool;
@@ -44,6 +45,7 @@ pub use mcp::{McpServer, McpProxyTool};
 pub use skills::{MarkdownSkill, SkillLoader};
 pub use task_spawner::TaskSpawnerTool;
 pub use watchdog::WatchdogTool;
+pub use notify::NotifyTool;
 
 use crate::agent::{AgentResult, LadeQuadrant};
 use crate::orchestrator::AgencyEvent;

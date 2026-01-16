@@ -38,6 +38,8 @@ pub mod uap_grpc;
 pub mod queue;
 pub mod scheduler;
 pub mod sensory;
+pub mod homeostasis;
+pub mod vocal_cords;
 
 pub use crate::agent::speaker_rs::Speaker;
 pub use supervisor::{Supervisor, SupervisorResult};

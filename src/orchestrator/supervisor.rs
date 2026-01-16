@@ -68,6 +68,8 @@ pub struct Supervisor {
     pub task_queue: Arc<dyn TaskQueue>,
     /// Sensory Cortex (Watchdog)
     pub sensory: Arc<crate::orchestrator::sensory::SensoryCortex>,
+    /// Vocal Cords (Messaging)
+    pub vocal_cords: Arc<crate::orchestrator::vocal_cords::VocalCords>,
 }
 
 impl Supervisor {
@@ -80,11 +82,14 @@ impl Supervisor {
         let queue_path = std::env::var("AGENCY_TASK_DB").unwrap_or_else(|_| "agency_tasks.db".to_string());
         let task_queue: Arc<dyn TaskQueue> = Arc::new(SqliteTaskQueue::new(queue_path).await.expect("Failed to initialize task queue"));
         let sensory = Arc::new(crate::orchestrator::sensory::SensoryCortex::new(task_queue.clone()));
+        let vocal_cords = Arc::new(crate::orchestrator::vocal_cords::VocalCords::new());
 
         // Register the TaskSpawnerTool to enable Cellular Division
         tools.register_instance(crate::tools::TaskSpawnerTool::new(task_queue.clone())).await;
         // Register the WatchdogTool to enable Sensory Expansion
         tools.register_instance(crate::tools::WatchdogTool::new(sensory.clone())).await;
+        // Register the NotifyTool to enable Vocal Cords
+        tools.register_instance(crate::tools::NotifyTool::new(vocal_cords.clone())).await;
 
         // Start default project file sensor (FPF Grounding)
         let _ = sensory.watch_file(".").await;
@@ -129,6 +134,7 @@ impl Supervisor {
             },
             task_queue,
             sensory,
+            vocal_cords,
         }
     }
 
