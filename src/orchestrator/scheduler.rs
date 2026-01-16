@@ -73,6 +73,15 @@ impl AgencyScheduler {
             json!({})
         ).await?;
 
+        // 5 Minutes: Visual Observation (Proactive Grounding)
+        // Every 5 minutes at second 0
+        self.add_habit(
+            "Visual Observation", 
+            "0 */5 * * * *", 
+            "visual_observation", 
+            json!({})
+        ).await?;
+
         Ok(())
     }
 }

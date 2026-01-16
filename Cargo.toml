@@ -81,6 +81,8 @@ tracing-opentelemetry = "0.27"
 opentelemetry = "0.26"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.26"
+konst = "0.3"
+hex = "0.4"
 urlencoding = "2.1"
 html-escape = "0.2"
 libc = "0.2"
@@ -116,8 +118,10 @@ rusqlite = { version = "0.38.0", features = ["bundled"] }
 tokio-cron-scheduler = "0.9"
 rss = "2.0"
 notify = "6.1"
+enigo = "0.2"
 teloxide = { version = "0.13", features = ["macros"] }
 matrix-sdk = { version = "0.7", default-features = false, features = ["rustls-tls"] }
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
 
 # Tor/Arti for Anonymous A2A
 arti-client = { path = "arti/crates/arti-client", features = ["full", "tokio", "native-tls"] }

@@ -1,13 +1,16 @@
-//! Vocal Cords (Messaging Bridge)
+//! Vocal Cords (Messaging Bridge with bidirectional Ears)
 //! 
-//! Provides the agency with a voice on external platforms like Telegram and Matrix.
-//! Enables proactive notifications and mobile interaction.
+//! Provides the agency with a voice AND ears on external platforms.
+//! Enables proactive notifications and remote command execution.
 
 use teloxide::prelude::*;
-use matrix_sdk::{Client as MatrixClient, ruma::{OwnedUserId, OwnedRoomId, events::room::message::RoomMessageEventContent}};
+use matrix_sdk::{Client as MatrixClient, ruma::{OwnedUserId, OwnedRoomId, events::room::message::{RoomMessageEventContent, MessageType, SyncRoomMessageEvent}}};
 use tracing::{info, warn};
 use anyhow::Result;
 use tokio::sync::OnceCell;
+use std::sync::Arc;
+use crate::orchestrator::queue::TaskQueue;
+use serde_json::json;
 
 pub struct VocalCords {
     tg_bot: Option<Bot>,
@@ -66,6 +69,69 @@ impl VocalCords {
         }).await.ok()
     }
 
+    /// Start listening for messages on all active channels
+    pub async fn start_listening(&self, queue: Arc<dyn TaskQueue>) {
+        info!("👂 Vocal Cords: Opening ears...");
+
+        // 1. Listen to Telegram
+        if let (Some(bot), Some(allowed_chat_id)) = (self.tg_bot.clone(), self.tg_chat_id) {
+            let q = queue.clone();
+            tokio::spawn(async move {
+                let handler = Update::filter_message().endpoint(move |bot: Bot, msg: Message, q: Arc<dyn TaskQueue>| async move {
+                    if msg.chat.id == allowed_chat_id {
+                        if let Some(text) = msg.text() {
+                            info!("📥 Received Telegram command: {}", text);
+                            let _ = q.enqueue("autonomous_goal", json!(text)).await;
+                            let _ = bot.send_message(msg.chat.id, "✅ Command enqueued to Agency.").await;
+                        }
+                    }
+                    respond(())
+                });
+
+                Dispatcher::builder(bot, handler)
+                    .dependencies(dptree::deps![q])
+                    .enable_ctrlc_handler()
+                    .build()
+                    .dispatch()
+                    .await;
+            });
+        }
+
+        // 2. Listen to Matrix
+        if let Some(room_id_str) = self.matrix_room_id.clone() {
+            if let Some(client) = self.get_matrix_client().await {
+                let client_clone = client.clone();
+                let q = queue.clone();
+                tokio::spawn(async move {
+                    client_clone.add_event_handler(move |ev: SyncRoomMessageEvent, client: MatrixClient| {
+                        let q = q.clone();
+                        let room_id_str = room_id_str.clone();
+                        async move {
+                            if let Ok(room_id) = <OwnedRoomId>::try_from(room_id_str.as_str()) {
+                                if let Some(room) = client.get_room(&room_id) {
+                                    if let Some(original) = ev.as_original() {
+                                        if let MessageType::Text(text_content) = &original.content.msgtype {
+                                            let text = &text_content.body;
+                                            if !text.contains("✅ Command enqueued") {
+                                                info!("📥 Received Matrix command: {}", text);
+                                                let _ = q.enqueue("autonomous_goal", json!(text)).await;
+                                                // Send confirmation
+                                                let content = RoomMessageEventContent::text_plain("✅ Command enqueued to Agency.");
+                                                let _ = room.send(content).await;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    let _ = client_clone.sync(matrix_sdk::config::SyncSettings::default()).await;
+                });
+            }
+        }
+    }
+
     /// Send a proactive message to all active channels
     pub async fn say(&self, message: &str) -> Result<()> {
         // 1. Send to Telegram
@@ -81,14 +147,13 @@ impl VocalCords {
             if let Some(client) = self.get_matrix_client().await {
                 info!("📣 Sending Matrix notification...");
                 if let Ok(room_id) = <OwnedRoomId>::try_from(room_id_str.as_str()) {
-                    let joined_rooms = client.joined_rooms();
-                    if let Some(room) = joined_rooms.iter().find(|r| r.room_id() == &room_id) {
+                    if let Some(room) = client.get_room(&room_id) {
                         let content = RoomMessageEventContent::text_plain(message);
                         if let Err(e) = room.send(content).await {
                             warn!("Matrix notification failed: {}", e);
                         }
                     } else {
-                        warn!("Matrix: Joined room {} not found.", room_id_str);
+                        warn!("Matrix: Room {} not found.", room_id_str);
                     }
                 } else {
                     warn!("Matrix: Invalid Room ID format: {}", room_id_str);

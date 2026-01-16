@@ -26,6 +26,8 @@ mod watchdog;
 mod notify;
 mod swarm_bounty;
 mod mutation;
+mod wallet;
+mod hands;
 
 pub use web_search::WebSearchTool;
 pub use speaker_rs::SpeakerRsTool;
@@ -50,6 +52,8 @@ pub use watchdog::WatchdogTool;
 pub use notify::NotifyTool;
 pub use swarm_bounty::SwarmBountyTool;
 pub use mutation::MutationTool;
+pub use wallet::WalletTool;
+pub use hands::HandsTool;
 
 use crate::agent::{AgentResult, LadeQuadrant};
 use crate::orchestrator::AgencyEvent;

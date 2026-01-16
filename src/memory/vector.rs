@@ -81,6 +81,20 @@ impl Memory for VectorMemory {
         }
     }
 
+    async fn get_cold_memories(&self, limit: usize) -> Result<Vec<MemoryEntry>> {
+        match self {
+            Self::Local(m) => m.get_cold_memories(limit).await,
+            Self::Remote(m) => m.get_cold_memories(limit).await,
+        }
+    }
+
+    async fn prune(&self, ids: Vec<String>) -> Result<()> {
+        match self {
+            Self::Local(m) => m.prune(ids).await,
+            Self::Remote(m) => m.prune(ids).await,
+        }
+    }
+
     async fn clear_cache(&self) -> Result<()> {
         match self {
             Self::Local(m) => m.clear_cache().await,
@@ -268,7 +282,7 @@ impl Memory for LocalVectorMemory {
             return Ok(0); 
         }
 
-        info!("🧠 Memory Dreaming: Consolidating cold memories...");
+        info!("🧠 Memory Dreaming: Performing metabolic cleanup...");
 
         let now = chrono::Utc::now();
         let week_ago = now - chrono::Duration::days(7);
@@ -277,16 +291,31 @@ impl Memory for LocalVectorMemory {
             e.metadata.access_count > 5 || e.timestamp > week_ago || e.metadata.importance > 0.8
         });
 
-        if cold.is_empty() {
-            *entries = hot;
-            return Ok(0);
-        }
-
         let cold_count = cold.len();
         *entries = hot;
         
-        info!("🧠 Dreaming complete: Pruned {} cold memories.", cold_count);
+        info!("🧠 Dreaming complete: Pruned {} cold memories from HOT cache.", cold_count);
         Ok(cold_count)
+    }
+
+    async fn get_cold_memories(&self, limit: usize) -> Result<Vec<MemoryEntry>> {
+        let entries = self.entries.read().await;
+        let now = chrono::Utc::now();
+        let week_ago = now - chrono::Duration::days(7);
+
+        let mut cold: Vec<_> = entries.iter()
+            .filter(|e| e.metadata.access_count <= 2 && e.timestamp < week_ago && e.metadata.importance < 0.7)
+            .cloned()
+            .collect();
+
+        cold.truncate(limit);
+        Ok(cold)
+    }
+
+    async fn prune(&self, ids: Vec<String>) -> Result<()> {
+        let mut entries = self.entries.write().await;
+        entries.retain(|e| !ids.contains(&e.id));
+        Ok(())
     }
     
     async fn clear_cache(&self) -> Result<()> { 
@@ -356,6 +385,14 @@ impl Memory for RemoteVectorMemory {
 
     async fn consolidate(&self) -> Result<usize> {
         Ok(0)
+    }
+
+    async fn get_cold_memories(&self, _limit: usize) -> Result<Vec<MemoryEntry>> {
+        Ok(Vec::new())
+    }
+
+    async fn prune(&self, _ids: Vec<String>) -> Result<()> {
+        Ok(())
     }
 
     async fn clear_cache(&self) -> Result<()> {

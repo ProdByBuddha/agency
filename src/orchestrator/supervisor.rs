@@ -70,6 +70,8 @@ pub struct Supervisor {
     pub sensory: Arc<crate::orchestrator::sensory::SensoryCortex>,
     /// Vocal Cords (Messaging)
     pub vocal_cords: Arc<crate::orchestrator::vocal_cords::VocalCords>,
+    /// Economic Metabolism (Financial Energy)
+    pub metabolism: Arc<crate::orchestrator::metabolism::EconomicMetabolism>,
 }
 
 impl Supervisor {
@@ -83,6 +85,7 @@ impl Supervisor {
         let task_queue: Arc<dyn TaskQueue> = Arc::new(SqliteTaskQueue::new(queue_path).await.expect("Failed to initialize task queue"));
         let sensory = Arc::new(crate::orchestrator::sensory::SensoryCortex::new(task_queue.clone()));
         let vocal_cords = Arc::new(crate::orchestrator::vocal_cords::VocalCords::new());
+        let metabolism = Arc::new(crate::orchestrator::metabolism::EconomicMetabolism::new()); // Default initial balance handled inside
 
         // Register the TaskSpawnerTool to enable Cellular Division
         tools.register_instance(crate::tools::TaskSpawnerTool::new(task_queue.clone())).await;
@@ -94,6 +97,10 @@ impl Supervisor {
         tools.register_instance(crate::tools::SwarmBountyTool::new(task_queue.clone())).await;
         // Register the MutationTool to enable Self-Evolution
         tools.register_instance(crate::tools::MutationTool::default()).await;
+        // Register the WalletTool to enable Economic Metabolism
+        tools.register_instance(crate::tools::WalletTool::new(metabolism.clone())).await;
+        // Register the HandsTool to enable GUI Control
+        tools.register_instance(crate::tools::HandsTool::new()).await;
 
         // Start default project file sensor (FPF Grounding)
         let _ = sensory.watch_file(".").await;
@@ -139,6 +146,7 @@ impl Supervisor {
             task_queue,
             sensory,
             vocal_cords,
+            metabolism,
         }
     }
 
@@ -167,8 +175,71 @@ impl Supervisor {
                 if task.kind == "memory_consolidation" {
                     info!("Supervisor Worker: Performing memory consolidation (Dreaming)...");
                     if let Some(ref memory) = self.memory {
+                        // SOTA: Cognitive Dreaming Phase
+                        if let Ok(cold_memories) = memory.get_cold_memories(20).await {
+                            if !cold_memories.is_empty() {
+                                info!("Supervisor Worker: Analyzing {} cold memories for patterns...", cold_memories.len());
+                                
+                                let mut context_text = String::new();
+                                for (i, m) in cold_memories.iter().enumerate() {
+                                    context_text.push_str(&format!("[{}] {}: {}\n", i, m.metadata.agent, m.content));
+                                }
+
+                                let prompt = format!(
+                                    "DREAMING PHASE: Consolidate these 20 disparate memories into 3-5 concise 'Core Beliefs' or 'Learned Patterns'. \
+                                     Focus on high-level insights that remain useful. \n\nMEMORIES:\n{}", 
+                                    context_text
+                                );
+
+                                if let Ok(dream_res) = self.provider.generate("llama3", prompt, Some("You are the Agency's subconscious mind.".to_string())).await {
+                                    info!("Supervisor Worker: New core beliefs formed. Offloading raw data.");
+                                    let consolidated_entry = crate::memory::MemoryEntry::new(
+                                        format!("Consolidated Knowledge (from Dreaming):\n{}", dream_res),
+                                        "Subconscious",
+                                        crate::memory::entry::MemorySource::Reflection
+                                    ).with_importance(0.9);
+                                    
+                                    let _ = memory.store(consolidated_entry).await;
+                                    
+                                    // Prune the raw ones
+                                    let ids: Vec<String> = cold_memories.into_iter().map(|m| m.id).collect();
+                                    let _ = memory.prune(ids).await;
+                                }
+                            }
+                        }
+
+                        // Final metabolic cleanup
                         let _ = memory.consolidate().await;
                         let _ = memory.persist().await;
+                    }
+                }
+
+                if task.kind == "visual_observation" {
+                    info!("Supervisor Worker: Performing proactive visual grounding...");
+                    if let Some(vision_tool) = self.tools.get_tool("vision").await {
+                        // 1. Capture Screen
+                        let _ = vision_tool.execute(serde_json::json!({"action": "capture_screen"})).await;
+                        
+                        // 2. Describe Screen
+                        if let Ok(res) = vision_tool.execute(serde_json::json!({
+                            "action": "describe",
+                            "prompt": "What is the user currently working on? Describe the visible windows, code, or activities in detail."
+                        })).await {
+                            if res.success {
+                                let description = res.data["description"].as_str().unwrap_or("");
+                                info!("Supervisor Worker: Visual context captured: {}", description);
+                                
+                                // 3. Store in Memory
+                                if let Some(ref memory) = self.memory {
+                                    let entry = crate::memory::MemoryEntry::new(
+                                        format!("Visual Observation (Context): {}", description),
+                                        "Supervisor_Vision",
+                                        crate::memory::entry::MemorySource::System
+                                    ).with_importance(0.6); // High grounding value
+                                    let _ = memory.store(entry).await;
+                                }
+                            }
+                        }
                     }
                 }
 
