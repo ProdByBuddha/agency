@@ -259,7 +259,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_forge_tool_execute() {
-        let registry = Arc::new(ToolRegistry::new());
+        let registry = Arc::new(ToolRegistry::default());
         let temp_dir = tempdir().expect("Failed to create temp dir");
         let tool = ForgeTool::new(temp_dir.path(), registry.clone());
         

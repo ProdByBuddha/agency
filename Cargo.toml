@@ -28,6 +28,8 @@ hf-hub = "0.4.0"
 # Memory system - Vector DB + Embeddings
 chromadb = "0.3"
 fastembed = "5"
+rayon = "1.10"
+bincode = "1.3"
 
 # ML Inference - Local Source
 # Disabled download-binaries to prevent TLS build errors
@@ -39,7 +41,7 @@ ndarray = "0.15.6"
 ndarray-rand = "0.14"
 rand = "0.8"
 safetensors = "0.4"
-half = "2.4"
+half = "2.5"
 rustfft = "6.2"
 
 # Audio Playback & Input
@@ -73,6 +75,7 @@ chrono = { version = "0.4", features = ["serde"] }
 sysinfo = "0.37"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 tracing-opentelemetry = "0.27"
 opentelemetry = "0.26"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
@@ -106,6 +109,9 @@ pai-core = { path = "pai-core" }
 tonic = "0.12"
 prost = "0.13"
 prost-types = "0.13"
+
+# Persistent Task Queue
+rusqlite = { version = "0.38.0", features = ["bundled"] }
 
 # Tor/Arti for Anonymous A2A
 arti-client = { path = "arti/crates/arti-client", features = ["full", "tokio", "native-tls"] }

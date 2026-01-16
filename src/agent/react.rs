@@ -1215,7 +1215,7 @@ mod tests {
     fn test_extract_tag() {
         let profile = AgencyProfile::default();
         let config = AgentConfig::new(AgentType::GeneralChat, &profile);
-        let agent = ReActAgent::new(Ollama::default(), config, Arc::new(ToolRegistry::new()));
+        let agent = ReActAgent::new(Ollama::default(), config, Arc::new(ToolRegistry::default()));
         
         let response = "[THOUGHT]\nI should check the weather.\n[ACTION]\n{\"name\": \"get_weather\", \"parameters\": {\"location\": \"Seattle\"}}\n";
         

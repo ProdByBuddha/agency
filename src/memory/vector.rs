@@ -1,6 +1,7 @@
-//! Vector Memory Implementation using fastembed or remote server
+//! Vector Memory Implementation using Native Rust (Vec + Rayon)
 //! 
-//! Provides semantic search over stored memories using vector embeddings.
+//! Provides semantic search over stored memories using naive vector search
+//! parallelized with Rayon. Persists to disk using Bincode for efficiency.
 //! Supports local (embedded) or remote (microservice) modes.
 
 use anyhow::{Context, Result};
@@ -9,11 +10,14 @@ use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::info;
+use tracing::{info, warn};
 use reqwest::Client;
 use serde_json::json;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use rayon::prelude::*;
 
-use super::{Memory, MemoryEntry};
+use super::{Memory, MemoryEntry, entry::MemorySource};
 
 /// Vector memory abstraction supporting local or remote backends
 pub enum VectorMemory {
@@ -34,7 +38,7 @@ impl VectorMemory {
             info!("Initializing RemoteVectorMemory at {}", url);
             Ok(VectorMemory::Remote(RemoteVectorMemory::new(url)))
         } else {
-            info!("Initializing LocalVectorMemory at {:?}", path);
+            info!("Initializing LocalVectorMemory (Native) at {:?}", path);
             Ok(VectorMemory::Local(LocalVectorMemory::new(path)?))
         }
     }
@@ -92,11 +96,11 @@ impl Memory for VectorMemory {
     }
 }
 
-/// Vector memory backed by local file storage
+/// Vector memory backed by local file storage (Bincode)
 pub struct LocalVectorMemory {
     path: PathBuf,
     embedder: Arc<RwLock<Option<TextEmbedding>>>,
-    cache: Arc<RwLock<Vec<MemoryEntry>>>,
+    entries: Arc<RwLock<Vec<MemoryEntry>>>,
 }
 
 impl LocalVectorMemory {
@@ -105,11 +109,43 @@ impl LocalVectorMemory {
             InitOptions::new(EmbeddingModel::AllMiniLML6V2)
         ).context("Failed to initialize embedding model")?;
 
-        Ok(Self {
+        let mut instance = Self {
             path,
             embedder: Arc::new(RwLock::new(Some(embedder))),
-            cache: Arc::new(RwLock::new(Vec::new())),
-        })
+            entries: Arc::new(RwLock::new(Vec::new())),
+        };
+
+        // Load if exists (Bincode or fallback to JSON for legacy compat)
+        instance.load()?;
+
+        Ok(instance)
+    }
+
+    fn load(&mut self) -> Result<()> {
+        if self.path.exists() {
+            // Try Bincode first
+            if let Ok(file) = File::open(&self.path) {
+                let reader = BufReader::new(file);
+                match bincode::deserialize_from::<_, Vec<MemoryEntry>>(reader) {
+                    Ok(entries) => {
+                        info!("Loaded {} memories from binary store", entries.len());
+                        *self.entries.blocking_write() = entries;
+                        return Ok(());
+                    },
+                    Err(_) => {
+                        // Fallback to JSON (migration path)
+                        let content = std::fs::read_to_string(&self.path)?;
+                        if let Ok(entries) = serde_json::from_str::<Vec<MemoryEntry>>(&content) {
+                            info!("Loaded {} memories from legacy JSON store", entries.len());
+                            *self.entries.blocking_write() = entries;
+                            // We will save as bincode on next persist
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn embed(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
@@ -147,57 +183,92 @@ impl Memory for LocalVectorMemory {
             let embeddings = self.embed(&[entry.content.clone()]).await?;
             entry.embedding = Some(embeddings[0].clone());
         }
-        let mut cache = self.cache.write().await;
+        
+        let mut entries = self.entries.write().await;
+        
+        // Remove duplicates if same ID (update)
+        entries.retain(|e| e.id != entry.id);
+        
+        // CodebaseIndexer deduplication logic
         if let Some(ref query) = entry.query {
             if entry.metadata.agent == "CodebaseIndexer" {
-                cache.retain(|e| e.query.as_ref() != Some(query));
+                entries.retain(|e| e.query.as_ref() != Some(query));
             }
         }
+        
         let id = entry.id.clone();
-        cache.push(entry);
+        entries.push(entry);
+        
+        // Auto-persist on write for durability
+        // We do this in background or sync? Doing sync for safety.
+        // But to avoid blocking async runtime, we should use spawn_blocking if file IO is heavy.
+        // For now, we rely on the `persist` method being called or valid shutdown.
+        // Actually, let's persist here to be safe (Muscular durability).
+        // But serializing huge vec every time is slow.
+        // We'll rely on explicit persist() call or periodic save.
+        
         Ok(id)
     }
 
     async fn search(&self, query: &str, top_k: usize, context: Option<&str>, kind: Option<crate::orchestrator::Kind>) -> Result<Vec<MemoryEntry>> {
         let query_embedding = self.embed(&[query.to_string()]).await?.into_iter().next().context("No embedding")?;
-        let cache = self.cache.read().await;
-        let mut scored: Vec<(f32, usize)> = cache.iter().enumerate()
+        
+        let entries_guard = self.entries.read().await;
+        // Clone entries for parallel processing (cheap if Arc, but MemoryEntry is not Arc)
+        // We process references in parallel
+        
+        let mut scored: Vec<(f32, usize)> = entries_guard.par_iter().enumerate()
             .filter(|(_, e)| {
                 let ctx_m = context.map_or(true, |c| e.metadata.context == c);
                 let kind_m = kind.as_ref().map_or(true, |k| &e.metadata.kind == k);
                 ctx_m && kind_m
             })
-            .filter_map(|(idx, e)| e.embedding.as_ref().map(|emb| (Self::dot_product(&query_embedding, emb), idx)))
+            .filter_map(|(idx, e)| {
+                e.embedding.as_ref().map(|emb| (Self::dot_product(&query_embedding, emb), idx))
+            })
             .collect();
-        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+
+        // Sort descending by score
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        
         Ok(scored.into_iter().take(top_k).map(|(s, idx)| {
-            let mut e = cache[idx].clone();
+            let mut e = entries_guard[idx].clone();
             e.similarity = Some(s);
             e
         }).collect())
     }
 
-    async fn count(&self) -> Result<usize> { Ok(self.cache.read().await.len()) }
+    async fn count(&self) -> Result<usize> { Ok(self.entries.read().await.len()) }
+    
     async fn persist(&self) -> Result<()> {
-        let cache = self.cache.read().await;
-        let content = serde_json::to_string_pretty(&*cache)?;
-        tokio::fs::write(&self.path, content).await?;
+        let entries = self.entries.read().await;
+        let path = self.path.clone();
+        let entries_clone = entries.clone(); // Clone to move to thread
+        
+        tokio::task::spawn_blocking(move || {
+            let file = File::create(path)?;
+            let writer = BufWriter::new(file);
+            bincode::serialize_into(writer, &entries_clone)?;
+            Ok::<(), anyhow::Error>(())
+        }).await??;
+        
         Ok(())
     }
-    async fn clear_cache(&self) -> Result<()> { self.cache.write().await.clear(); Ok(()) }
+    
+    async fn clear_cache(&self) -> Result<()> { 
+        // We don't clear entries as they are the DB
+        Ok(()) 
+    }
+    
     async fn hibernate(&self) -> Result<()> {
         *self.embedder.write().await = None;
-        self.cache.write().await.clear();
         Ok(())
     }
+    
     async fn wake(&self) -> Result<()> {
         let mut emb = self.embedder.write().await;
         if emb.is_none() {
             *emb = Some(TextEmbedding::try_new(InitOptions::new(EmbeddingModel::AllMiniLML6V2))?);
-            if self.path.exists() {
-                let content = tokio::fs::read_to_string(&self.path).await?;
-                *self.cache.write().await = serde_json::from_str(&content)?;
-            }
         }
         Ok(())
     }
@@ -251,7 +322,7 @@ impl Memory for RemoteVectorMemory {
     }
 
     async fn clear_cache(&self) -> Result<()> {
-        self.client.post(format!("{}/hibernate", self.url)).send().await?; // Hibernate is a stronger clear
+        self.client.post(format!("{}/hibernate", self.url)).send().await?;
         Ok(())
     }
 
@@ -272,7 +343,7 @@ mod tests {
 
     #[test]
     fn test_memory_entry_creation() {
-        let entry = MemoryEntry::new("Test content", "TestAgent", super::super::entry::MemorySource::Agent);
+        let entry = MemoryEntry::new("Test content", "TestAgent", MemorySource::Agent);
         assert!(!entry.id.is_empty());
         assert_eq!(entry.content, "Test content");
         assert_eq!(entry.metadata.agent, "TestAgent");
@@ -282,9 +353,9 @@ mod tests {
     fn test_dot_product() {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![1.0, 0.0, 0.0];
-        assert!((VectorMemory::dot_product(&a, &b) - 1.0).abs() < 0.001);
+        assert!((LocalVectorMemory::dot_product(&a, &b) - 1.0).abs() < 0.001);
         
         let c = vec![0.0, 1.0, 0.0];
-        assert!(VectorMemory::dot_product(&a, &c).abs() < 0.001);
+        assert!(LocalVectorMemory::dot_product(&a, &c).abs() < 0.001);
     }
 }

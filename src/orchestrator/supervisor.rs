@@ -7,7 +7,7 @@ use ollama_rs::Ollama;
 use std::sync::Arc;
 use tokio::sync::{Semaphore, Mutex, mpsc};
 use std::collections::VecDeque;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use futures_util::future::join_all;
 
 use crate::agent::{
@@ -23,7 +23,8 @@ use crate::orchestrator::{
     DesignRationaleRecord, Publication,
     Objective, profile::AgencyProfile,
     aggregation::{Candidate, Gamma, RewardModel},
-    ResultPortfolio, ScaleProfile, AgencyEvent
+    ResultPortfolio, ScaleProfile, AgencyEvent,
+    queue::TaskQueue
 };
 use pai_core::{HookManager, HookEvent, HookEventType};
 
@@ -63,15 +64,20 @@ pub struct Supervisor {
     pub pai_memory: Arc<pai_core::memory::TieredMemoryManager>,
     /// PAI Recovery Journal
     pub recovery: Arc<pai_core::recovery::RecoveryJournal>,
+    /// Persistent Task Queue
+    pub task_queue: Arc<TaskQueue>,
 }
 
 impl Supervisor {
-    pub fn new(ollama: Ollama, tools: Arc<crate::tools::ToolRegistry>) -> Self {
+    pub async fn new(ollama: Ollama, tools: Arc<crate::tools::ToolRegistry>) -> Self {
         let provider = Arc::new(OllamaProvider::new(ollama));
-        Self::new_with_provider(provider, tools)
+        Self::new_with_provider(provider, tools).await
     }
 
-    pub fn new_with_provider(provider: Arc<dyn LLMProvider>, tools: Arc<crate::tools::ToolRegistry>) -> Self {
+    pub async fn new_with_provider(provider: Arc<dyn LLMProvider>, tools: Arc<crate::tools::ToolRegistry>) -> Self {
+        let queue_path = std::env::var("AGENCY_TASK_DB").unwrap_or_else(|_| "agency_tasks.db".to_string());
+        let task_queue = Arc::new(TaskQueue::new(queue_path).await.expect("Failed to initialize task queue"));
+
         Self {
             hw_lock: provider.get_lock(),
             provider,
@@ -110,6 +116,42 @@ impl Supervisor {
                 });
                 Arc::new(pai_core::recovery::RecoveryJournal::new(std::path::PathBuf::from(pai_dir)))
             },
+            task_queue,
+        }
+    }
+
+    /// Schedule a task for later execution
+    pub async fn schedule_task(&self, kind: &str, payload: serde_json::Value) -> Result<String> {
+        self.task_queue.enqueue(kind, payload).await
+    }
+
+    /// Process the next pending task from the queue (Single Step)
+    pub async fn process_next_task(&mut self) -> Result<bool> {
+        match self.task_queue.dequeue().await {
+            Ok(Some(task)) => {
+                info!("Supervisor Worker: Processing task {} ({})", task.id, task.kind);
+                
+                if task.kind == "autonomous_goal" {
+                    if let Ok(goal) = serde_json::from_str::<String>(&task.payload) {
+                        info!("Supervisor Worker: Running autonomous goal: {}", goal);
+                        if let Err(e) = self.run_autonomous(&goal).await {
+                            error!("Supervisor Worker: Autonomous task failed: {}", e);
+                            let _ = self.task_queue.fail(&task.id, &e.to_string(), true).await;
+                            return Ok(true);
+                        }
+                    }
+                }
+
+                if let Err(e) = self.task_queue.complete(&task.id).await {
+                    error!("Supervisor Worker: Failed to complete task {}: {}", task.id, e);
+                }
+                Ok(true)
+            },
+            Ok(None) => Ok(false),
+            Err(e) => {
+                error!("Supervisor Worker: Queue error: {}", e);
+                Ok(false)
+            }
         }
     }
 
@@ -317,9 +359,7 @@ impl Supervisor {
             if attempt > 0 {
                 let _ = self.provider.notify(&format!("\n⚠️ Task failed with {}. Escalating to next intelligence tier...\n", current_scale.target_model)).await;
                 let next_class = current_scale.class.escalate();
-                if next_class == current_scale.class && attempt > 0 {
-                    break; // Already at intelligence ceiling
-                }
+                if next_class == current_scale.class && attempt > 0 { break; } // Already at intelligence ceiling
                 current_scale = ScaleProfile::new_with_class(next_class, 8.0); // Use class override
             }
 
@@ -421,7 +461,7 @@ impl Supervisor {
                     final_res = Some(winner_res);
                     final_performer = format!("{:?}", final_routing.candidate_agents[winner_idx]);
                     break; 
-                } else {
+                } else { 
                     // All candidates in this tier failed, continue loop to escalate
                     final_res = Some(winner_res);
                     final_performer = format!("{:?}", final_routing.candidate_agents[winner_idx]);
@@ -459,8 +499,7 @@ impl Supervisor {
             None, 
             None, 
             None
-        ).with_mvpk(final_res.thought.clone(), final_res.reliability)
-         .with_approval(final_res.pending_approval.clone());
+        ).with_mvpk(final_res.thought.clone(), final_res.reliability);
         
         publication.rationale = Some(DesignRationaleRecord::new(
             "Supervisor", 

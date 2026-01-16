@@ -238,6 +238,12 @@ mod tests {
             Ok("This is a mock response from the CTM provider.".to_string())
         }
 
+        async fn generate_stream(&self, _model: &str, _prompt: String, _system: Option<String>) -> anyhow::Result<futures::stream::BoxStream<'static, anyhow::Result<String>>> {
+            use futures::stream::StreamExt;
+            let stream = futures::stream::iter(vec![Ok("This is a mock response from the CTM provider.".to_string())]);
+            Ok(stream.boxed())
+        }
+
         fn get_lock(&self) -> std::sync::Arc<tokio::sync::Mutex<()>> {
             std::sync::Arc::new(tokio::sync::Mutex::new(()))
         }

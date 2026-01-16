@@ -289,6 +289,7 @@ async fn main() -> Result<()> {
 
     // Initialize supervisor
     let mut supervisor = Supervisor::new_with_provider(provider.clone(), tools.clone())
+        .await
         .with_memory(memory.clone())
         .with_session(session_manager)
         .with_episodic_memory(episodic_memory.clone())
@@ -308,6 +309,27 @@ async fn main() -> Result<()> {
     
     // Wrap Supervisor in Shared Mutex for Hybrid Access
     let shared_supervisor = Arc::new(Mutex::new(supervisor));
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // AUTONOMY: Durable Task Processing
+    // ──────────────────────────────────────────────────────────────────────────
+    {
+        let supervisor = shared_supervisor.clone();
+        tokio::spawn(async move {
+            info!("⚙️  Autonomy Engine Online (Background)");
+            loop {
+                // We lock briefly to check/process one task
+                let processed = {
+                    let mut guard = supervisor.lock().await;
+                    guard.process_next_task().await.unwrap_or(false)
+                };
+                
+                if !processed {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                }
+            }
+        });
+    }
 
     // SOTA: Register A2A Peer Tools (Agent-to-Agent)
     // Allows agents to consult specialized peers (Coder, Researcher, etc.)

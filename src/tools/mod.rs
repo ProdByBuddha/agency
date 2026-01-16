@@ -392,7 +392,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_registration() {
-        let registry = ToolRegistry::new();
+        let registry = ToolRegistry::default();
         registry.register::<MockTool>().await;
         
         let names = registry.tool_names().await;
@@ -401,7 +401,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_execution_caching() {
-        let registry = ToolRegistry::new();
+        let registry = ToolRegistry::default();
         registry.register::<MockTool>().await;
         
         let call = ToolCall {
@@ -420,7 +420,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_tools_prompt() {
-        let registry = ToolRegistry::new();
+        let registry = ToolRegistry::default();
         registry.register::<MockTool>().await;
         
         let prompt = registry.generate_tools_prompt().await;

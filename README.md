@@ -1,6 +1,6 @@
 # 🚀 SOTA Semi-Autonomous Agency (Rust) v0.2.0
 
-A state-of-the-art, semi-autonomous multi-agent system built in Rust. This agency features a ReAct reasoning framework, distributed microservices architecture, **Functional Performance Framework (FPF)** integration, and SOTA audio capabilities. It is designed for complex technical tasks, autonomous problem-solving, and seamless human-AI interaction via text and voice.
+A state-of-the-art, semi-autonomous multi-agent system built in Rust. This agency features a ReAct reasoning framework, distributed microservices architecture, **First Principle Framework (FPF)** integration, and SOTA audio capabilities. It is designed for complex technical tasks, autonomous problem-solving, and seamless human-AI interaction via text and voice.
 
 ## ✨ Key Features
 
@@ -10,7 +10,7 @@ A state-of-the-art, semi-autonomous multi-agent system built in Rust. This agenc
   - **Speaker Server**: Low-latency, high-fidelity TTS using **Candle** and **ONNX**.
   - **Listener Server**: Whisper-based speech recognition.
 - **🧠 ReAct Reasoning Framework**: Implements the Reason+Act paradigm with self-reflection and iterative planning.
-- **🧬 Functional Performance Framework (FPF)**: Adheres to FPF principles for capability scoping (`U.WorkScope`), characteristic aggregation, and multi-view publication.
+- **🧬 First Principle Framework (FPF)**: Adheres to FPF principles for capability scoping (`U.WorkScope`), characteristic aggregation, and multi-view publication.
 - **🔌 Model Context Protocol (MCP)**: Native support for connecting external MCP servers to extend tool capabilities dynamically.
 - **📚 Semantic Memory**: Integrates **ChromaDB** and **fastembed** for high-performance vector storage and retrieval.
 - **🗣️ SOTA Audio Engine**: Features **T3 Turbo** and **Candle** for local, privacy-focused, and high-quality voice synthesis.
