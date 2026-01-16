@@ -1,0 +1,34 @@
+;; Conduit Matrix Server Seatbelt Profile
+;; Derived from SOTA Sovereign Patterns
+
+(version 1)
+(deny default)
+(debug deny)
+
+(import "system.sb")
+
+;; Allow basic networking
+(allow network-bind (local tcp "*:6167"))
+(allow network-outbound)
+(allow network-inbound (local tcp "*:6167"))
+
+;; Allow read/write access to the conduit data directory ONLY
+(allow file-read* file-write*
+       (subpath (param "DATA_DIR"))
+       (subpath (param "LOG_DIR")))
+
+;; Allow reading system config needed for networking/DNS
+(allow file-read*
+       (literal "/etc/hosts")
+       (literal "/etc/resolv.conf")
+       (literal "/etc/services")
+       (literal "/etc/protocols")
+       (subpath "/usr/lib")
+       (subpath "/usr/share/icu")
+       (subpath "/private/var/db/mds")
+       (subpath "/private/var/run"))
+
+;; Allow basic system operations
+(allow process-exec (subpath "/usr/bin"))
+(allow signal (target self))
+(allow sysctl-read)

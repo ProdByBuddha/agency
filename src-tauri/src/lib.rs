@@ -99,6 +99,7 @@ async fn clear_memory(state: tauri::State<'_, AgencyState>) -> Result<(), String
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().build())
+    .plugin(tauri_plugin_shell::init())
     .setup(|app| {
         // Initialize Core Infrastructure
         let handle = app.handle().clone();
@@ -179,6 +180,42 @@ pub fn run() {
                             eprintln!("❌ Embedded Listener crashed: {}", e);
                         }
                     });
+                });
+            }
+
+            // ──────────────────────────────────────────────────────────────────────────
+            // SOVEREIGN ORGAN: Matrix Server (Conduit + Seatbelt)
+            // ──────────────────────────────────────────────────────────────────────────
+            if std::env::var("AGENCY_ENABLE_MATRIX").unwrap_or_default() == "1" {
+                let app_handle_inner = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_shell::ShellExt;
+                    
+                    let data_dir = app_handle_inner.path().app_data_dir().unwrap().join("conduit");
+                    let log_dir = app_handle_inner.path().app_log_dir().unwrap();
+                    std::fs::create_dir_all(&data_dir).ok();
+                    
+                    // Note: We use sandbox-exec directly to wrap the sidecar
+                    let sidecar_path = app_handle_inner.path().resolve("binaries/conduit", tauri::path::BaseDirectory::Resource).unwrap();
+                    let sb_path = app_handle_inner.path().resolve("binaries/conduit.sb", tauri::path::BaseDirectory::Resource).unwrap();
+
+                    println!("🔒 Launching Sandboxed Matrix Server...");
+                    
+                    let sidecar = app_handle_inner.shell().command("sandbox-exec")
+                        .args([
+                            "-f", &sb_path.to_string_lossy(),
+                            "-D", &format!("DATA_DIR={}", data_dir.to_string_lossy()),
+                            "-D", &format!("LOG_DIR={}", log_dir.to_string_lossy()),
+                            &sidecar_path.to_string_lossy()
+                        ])
+                        .env("CONDUIT_DATABASE_PATH", data_dir.to_string_lossy().to_string())
+                        .env("CONDUIT_PORT", "6167")
+                        .env("CONDUIT_SERVER_NAME", "localhost");
+
+                    match sidecar.spawn() {
+                        Ok(_) => println!("✅ Matrix Organ (Conduit) is beating."),
+                        Err(e) => eprintln!("❌ Matrix Organ failure: {}", e),
+                    }
                 });
             }
         });
