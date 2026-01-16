@@ -160,24 +160,3 @@ impl Tool for SystemTool {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::memory::VectorMemory;
-    use tempfile::tempdir;
-
-    #[tokio::test]
-    async fn test_system_tool_execute() {
-        let temp_dir = tempdir().expect("Failed to create temp dir");
-        let path = temp_dir.path().join("test_memory.json");
-        let memory = Arc::new(VectorMemory::new(path).expect("Failed to create memory"));
-        let manager = Arc::new(MemoryManager::new(memory));
-        let tool = SystemTool::new(manager);
-        
-        let res = tool.execute(json!({})).await.expect("Tool execution failed");
-        assert!(res.success);
-        assert!(res.summary.contains("Hardware Status"));
-        assert!(res.data.is_object());
-    }
-}

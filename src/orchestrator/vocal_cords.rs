@@ -171,3 +171,18 @@ impl VocalCords {
         tg_active || matrix_active
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vocal_cords_init() {
+        // Without env vars, it should be inactive
+        let cords = VocalCords::new();
+        assert!(!cords.is_active());
+        
+        // We can't easily mock env vars safely in parallel tests without a mutex,
+        // but checking the default "inactive" state verifies the logic doesn't panic.
+    }
+}

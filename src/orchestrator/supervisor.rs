@@ -72,6 +72,8 @@ pub struct Supervisor {
     pub vocal_cords: Arc<crate::orchestrator::vocal_cords::VocalCords>,
     /// Economic Metabolism (Financial Energy)
     pub metabolism: Arc<crate::orchestrator::metabolism::EconomicMetabolism>,
+    /// Cryptographic Identity (Sovereignty)
+    pub identity: Arc<crate::orchestrator::sovereignty::SovereignIdentity>,
 }
 
 impl Supervisor {
@@ -86,6 +88,7 @@ impl Supervisor {
         let sensory = Arc::new(crate::orchestrator::sensory::SensoryCortex::new(task_queue.clone()));
         let vocal_cords = Arc::new(crate::orchestrator::vocal_cords::VocalCords::new());
         let metabolism = Arc::new(crate::orchestrator::metabolism::EconomicMetabolism::new()); // Default initial balance handled inside
+        let identity = Arc::new(crate::orchestrator::sovereignty::SovereignIdentity::new().expect("Failed to initialize Sovereign Identity"));
 
         // Register the TaskSpawnerTool to enable Cellular Division
         tools.register_instance(crate::tools::TaskSpawnerTool::new(task_queue.clone())).await;
@@ -147,6 +150,7 @@ impl Supervisor {
             sensory,
             vocal_cords,
             metabolism,
+            identity,
         }
     }
 

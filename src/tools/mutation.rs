@@ -74,6 +74,38 @@ impl MutationTool {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    use std::fs::File;
+    use std::io::Write;
+
+    #[test]
+    fn test_mutation_path_safety() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let src_path = dir.path().join("src");
+        std::fs::create_dir(&src_path).expect("Failed to create src dir");
+        
+        // Create dummy file inside
+        let valid_file = src_path.join("lib.rs");
+        File::create(&valid_file).expect("Failed to create valid file");
+
+        let tool = MutationTool::new(&src_path);
+        
+        assert!(tool.is_safe_path(&valid_file), "Should allow valid file inside src");
+        
+        let outside_file = dir.path().join("secret.txt");
+        File::create(&outside_file).expect("Failed to create outside file");
+        
+        assert!(!tool.is_safe_path(&outside_file), "Should block file outside src");
+        
+        // Non-existent file
+        let ghost_file = src_path.join("ghost.rs");
+        assert!(!tool.is_safe_path(&ghost_file), "Should block non-existent file (canonicalize fails)");
+    }
+}
+
 impl Default for MutationTool {
     fn default() -> Self {
         Self::new(".")

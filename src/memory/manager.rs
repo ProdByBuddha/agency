@@ -253,6 +253,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_status() {
+        std::env::set_var("AGENCY_USE_REMOTE_MEMORY", "0");
+        if std::env::var("ORT_DYLIB_PATH").is_err() && !std::path::Path::new("libonnxruntime.dylib").exists() {
+            return;
+        }
         let temp_dir = tempdir().unwrap();
         let path = temp_dir.path().join("test_memory.json");
         let vector_memory = Arc::new(VectorMemory::new(path).unwrap());
@@ -265,6 +269,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_monitor_and_optimize_throttle() {
+        std::env::set_var("AGENCY_USE_REMOTE_MEMORY", "0");
+        if std::env::var("ORT_DYLIB_PATH").is_err() && !std::path::Path::new("libonnxruntime.dylib").exists() {
+            return;
+        }
         let temp_dir = tempdir().unwrap();
         let path = temp_dir.path().join("test_memory.json");
         let vector_memory = Arc::new(VectorMemory::new(path).unwrap());

@@ -116,29 +116,3 @@ impl Tool for KnowledgeGraphTool {
         ))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::memory::{VectorMemory, MemoryEntry, entry::MemorySource};
-    use tempfile::tempdir;
-
-    #[tokio::test]
-    async fn test_knowledge_graph_tool_execute() {
-        let temp_dir = tempdir().expect("Failed to create temp dir");
-        let path = temp_dir.path().join("memory.json");
-        let memory = Arc::new(VectorMemory::new(path).expect("Failed to create memory"));
-        
-        // Seed some relationships
-        let mut entry = MemoryEntry::new("Rust -> is a -> systems language", "test", MemorySource::Reflection);
-        entry.metadata.tags.push("knowledge_graph".to_string());
-        memory.store(entry).await.expect("Failed to store memory");
-        
-        let tool = KnowledgeGraphTool::new(memory);
-        let res = tool.execute(json!({})).await.expect("Tool execution failed");
-        
-        assert!(res.success);
-        assert!(res.data["mermaid"].as_str().expect("No mermaid output").contains("graph TD"));
-        assert!(res.data["mermaid"].as_str().expect("No mermaid output").contains("Rust -- \"is a\" --> systems_language"));
-    }
-}

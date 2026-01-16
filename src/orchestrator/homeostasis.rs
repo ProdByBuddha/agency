@@ -28,6 +28,20 @@ impl HomeostasisEngine {
         }
     }
 
+    /// Pure Logic: Calculate target concurrency based on resource usage
+    pub fn calculate_target_concurrency(cpu_usage: f32, mem_used_pct: f64, max_permits: usize) -> usize {
+        if cpu_usage > 85.0 || mem_used_pct > 90.0 {
+            // Fever/Crisis: Minimal metabolism
+            1
+        } else if cpu_usage > 60.0 || mem_used_pct > 75.0 {
+            // High Load: Quiet mode
+            (max_permits / 2).max(1)
+        } else {
+            // Healthy: Full metabolism
+            max_permits
+        }
+    }
+
     /// Start the self-regulation loop
     pub async fn start(mut self) {
         info!("🌡️ Homeostasis Engine: Monitoring system vitals (Max Concurrency: {})", self.max_permits);
@@ -50,34 +64,38 @@ impl HomeostasisEngine {
             debug!("Vitals: CPU {:.1}%, RAM {:.1}%", cpu_usage, mem_used_pct);
 
             // Determine desired metabolism class
-            let target_concurrency = if cpu_usage > 85.0 || mem_used_pct > 90.0 {
-                // Fever/Crisis: Minimal metabolism
-                1
-            } else if cpu_usage > 60.0 || mem_used_pct > 75.0 {
-                // High Load: Quiet mode
-                (self.max_permits / 2).max(1)
-            } else {
-                // Healthy: Full metabolism
-                self.max_permits
-            };
+            let target_concurrency = Self::calculate_target_concurrency(cpu_usage, mem_used_pct, self.max_permits);
 
             self.adjust_metabolism(target_concurrency).await;
         }
     }
 
     async fn adjust_metabolism(&self, target: usize) {
-        let current_available = self.concurrency_limit.available_permits();
-        
-        // Note: Simple logic for now. 
-        // We don't forcefully revoke active permits, 
-        // but we prevent new ones from being acquired if over limit.
-        // Actually, tokio Semaphore doesn't let us change 'max' easily.
-        // We just log for now, but in a real 'SOTA' impl we would 
-        // use a custom state-based rate limiter or a wrapped semaphore.
-        
         // FPF Implementation: We log the shift in 'Metabolism Class'
         if target < self.max_permits {
             debug!("Metabolism Shift: Throttling to {} concurrent tasks due to system load.", target);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_metabolism_calculation() {
+        let max = 10;
+        
+        // Healthy
+        assert_eq!(HomeostasisEngine::calculate_target_concurrency(10.0, 20.0, max), 10);
+        
+        // High CPU
+        assert_eq!(HomeostasisEngine::calculate_target_concurrency(70.0, 20.0, max), 5);
+        
+        // Crisis (CPU)
+        assert_eq!(HomeostasisEngine::calculate_target_concurrency(90.0, 20.0, max), 1);
+        
+        // Crisis (RAM)
+        assert_eq!(HomeostasisEngine::calculate_target_concurrency(10.0, 95.0, max), 1);
     }
 }

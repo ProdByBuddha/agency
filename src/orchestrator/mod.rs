@@ -42,6 +42,7 @@ pub mod homeostasis;
 pub mod vocal_cords;
 pub mod metabolism;
 pub mod healing;
+pub mod sovereignty;
 
 pub use crate::agent::speaker_rs::Speaker;
 pub use supervisor::{Supervisor, SupervisorResult};

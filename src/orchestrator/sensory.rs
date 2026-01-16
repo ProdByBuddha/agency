@@ -175,3 +175,32 @@ impl SensoryCortex {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::orchestrator::queue::SqliteTaskQueue;
+    use tempfile::NamedTempFile;
+
+    #[tokio::test]
+    async fn test_sensory_cortex_init() {
+        let tmp = NamedTempFile::new().unwrap();
+        let queue = Arc::new(SqliteTaskQueue::new(tmp.path()).await.unwrap());
+        let cortex = SensoryCortex::new(queue);
+        
+        // Initialization should not fail
+        assert!(cortex.http_history.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_watch_file_registration() {
+        let tmp_db = NamedTempFile::new().unwrap();
+        let queue = Arc::new(SqliteTaskQueue::new(tmp_db.path()).await.unwrap());
+        let cortex = SensoryCortex::new(queue);
+        
+        let tmp_watch = NamedTempFile::new().unwrap();
+        let res = cortex.watch_file(tmp_watch.path()).await;
+        
+        assert!(res.is_ok(), "Watch file should register correctly");
+    }
+}

@@ -82,7 +82,9 @@ opentelemetry = "0.26"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.26"
 konst = "0.3"
+memmap2 = "0.9"
 hex = "0.4"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 urlencoding = "2.1"
 html-escape = "0.2"
 libc = "0.2"
@@ -122,6 +124,9 @@ enigo = "0.2"
 teloxide = { version = "0.13", features = ["macros"] }
 matrix-sdk = { version = "0.7", default-features = false, features = ["rustls-tls"] }
 k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
+alloy-rlp = { version = "0.3", features = ["derive"] }
+alloy-primitives = { version = "0.8", features = ["serde"] }
+bs58 = "0.5"
 
 # Tor/Arti for Anonymous A2A
 arti-client = { path = "arti/crates/arti-client", features = ["full", "tokio", "native-tls"] }

@@ -59,3 +59,24 @@ impl Tool for TaskSpawnerTool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::orchestrator::queue::SqliteTaskQueue;
+    use tempfile::NamedTempFile;
+
+    #[tokio::test]
+    async fn test_task_spawner_execution() {
+        let tmp = NamedTempFile::new().unwrap();
+        let queue = Arc::new(SqliteTaskQueue::new(tmp.path()).await.unwrap());
+        let tool = TaskSpawnerTool::new(queue.clone());
+
+        let res = tool.execute(json!({
+            "goal": "Test spawning a single sub-task"
+        })).await.unwrap();
+
+        assert!(res.success);
+        assert_eq!(queue.count("pending").await.unwrap(), 1);
+    }
+}

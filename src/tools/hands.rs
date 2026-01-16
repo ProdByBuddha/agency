@@ -110,3 +110,29 @@ impl Tool for HandsTool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_hands_args_validation() {
+        let tool = HandsTool::new();
+        
+        // Missing action
+        let res = tool.execute(json!({})).await;
+        assert!(res.is_err()); // Validation error
+
+        // Missing coordinates for move
+        let res = tool.execute(json!({
+            "action": "mouse_move"
+        })).await.unwrap(); // Execute returns Ok(Output) even on failure usually, but AgentError on validation
+        
+        // Wait, validation errors return AgentError, execution errors return ToolOutput::failure
+        // My implementation returns AgentError for missing 'action', but 'failure' output for missing 'x' inside spawn_blocking
+        // Let's verify that behavior.
+        
+        assert!(!res.success); 
+        assert!(res.summary.contains("GUI error"));
+    }
+}

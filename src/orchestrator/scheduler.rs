@@ -85,3 +85,28 @@ impl AgencyScheduler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::orchestrator::queue::SqliteTaskQueue;
+    use tempfile::NamedTempFile;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_scheduler_habit_registration() {
+        let tmp = NamedTempFile::new().unwrap();
+        let queue = Arc::new(SqliteTaskQueue::new(tmp.path()).await.unwrap());
+        let scheduler = AgencyScheduler::new(queue).await.unwrap();
+
+        // Register a test habit
+        let res = scheduler.add_habit(
+            "Test Habit",
+            "0 0 * * * *", // Hourly
+            "test_task",
+            json!({})
+        ).await;
+
+        assert!(res.is_ok());
+    }
+}

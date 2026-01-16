@@ -1,5 +1,0 @@
-{
-  "feature_extractor_type": "ChatterboxFeatureExtractor",
-  "processor_class": "ChatterboxProcessor",
-  "sampling_rate": 24000
-}

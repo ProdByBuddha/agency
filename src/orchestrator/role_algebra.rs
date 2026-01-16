@@ -54,3 +54,23 @@ impl RoleAlgebra {
         self.specialization.iter().any(|(c, p)| c == role_a && p == role_b)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_role_algebra_relations() {
+        let algebra = RoleAlgebra::new();
+        
+        // Test Specialization
+        assert!(algebra.satisfies("Coder", "Agent"));
+        assert!(algebra.satisfies("Agent", "Agent"));
+        assert!(!algebra.satisfies("Agent", "Coder"));
+
+        // Test Incompatibility (SoD)
+        assert!(algebra.is_incompatible("Coder", "Reviewer"));
+        assert!(algebra.is_incompatible("Reviewer", "Coder"));
+        assert!(!algebra.is_incompatible("Coder", "Agent"));
+    }
+}

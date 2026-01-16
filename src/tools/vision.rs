@@ -261,3 +261,22 @@ impl Tool for VisionTool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vision_params_parsing() {
+        let json = json!({
+            "action": "describe",
+            "prompt": "What do you see?",
+            "image_source": "test.png"
+        });
+        
+        let params: VisionParams = serde_json::from_value(json).expect("Failed to parse params");
+        assert_eq!(params.action, "describe");
+        assert_eq!(params.prompt.unwrap(), "What do you see?");
+        assert_eq!(params.image_source.unwrap(), "test.png");
+    }
+}
