@@ -18,6 +18,7 @@ pub mod utils;
 pub mod server;
 pub mod services;
 pub mod desktop;
+pub mod runtime;
 
 // Re-exports for convenience
 pub use agent::AgentType;

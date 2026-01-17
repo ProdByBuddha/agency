@@ -112,6 +112,14 @@ pub fn run() {
             // Manually load .env since we might be in a bundle
             dotenv::dotenv().ok();
 
+            // DESKTOP DEFAULT: If no provider is specified, default to "ollama" for the standalone app.
+            if std::env::var("AGENCY_PROVIDER").is_err() {
+                std::env::set_var("AGENCY_PROVIDER", "ollama");
+            }
+            if std::env::var("OLLAMA_HOST").is_err() {
+                std::env::set_var("OLLAMA_HOST", "http://localhost:11434");
+            }
+
             // Initialize Memory
             let memory_file = std::env::var("AGENCY_MEMORY_PATH").unwrap_or("memory.json".to_string());
             let memory: Arc<dyn Memory> = Arc::new(VectorMemory::new(&memory_file).unwrap());
@@ -150,6 +158,7 @@ pub fn run() {
             let profile = profile_manager.load().await.unwrap_or_default();
 
             let mut supervisor = Supervisor::new_with_provider(provider.clone(), tools.clone())
+                .await
                 .with_memory(memory.clone())
                 .with_session(session_manager)
                 .with_episodic_memory(episodic_memory.clone())

@@ -107,6 +107,18 @@ impl Tool for DynamicTool {
 
         debug!("Executing dynamic tool {} using {}", self.metadata.name, cmd);
 
+        #[cfg(target_os = "macos")]
+        let (cmd, args) = {
+             let mut sb_args = vec![
+                "-p".to_string(), crate::utils::sandbox::TOOL_SANDBOX_POLICY.to_string(),
+                "-D".to_string(), format!("WORKSPACE_DIR={}", "."), // Allow CWD access
+                "--".to_string(),
+                cmd
+            ];
+            sb_args.extend(args);
+            ("/usr/bin/sandbox-exec".to_string(), sb_args)
+        };
+
         let result = timeout(
             Duration::from_secs(60),
             Command::new(&cmd)

@@ -243,7 +243,9 @@ async fn main() -> Result<()> {
         tools.register_instance(ScienceTool::new()),
         tools.register_instance(VisionTool::new()),
         tools.register_instance(ForgeTool::new("custom_tools", tools.clone())),
-        tools.register_instance(SystemTool::new(manager.clone()))
+        tools.register_instance(SystemTool::new(manager.clone())),
+        tools.register_instance(rust_agency::tools::WasmCompilerTool::new()),
+        tools.register_instance(rust_agency::tools::WasmExecutorTool::new())
     );
 
     // SOTA: Markdown-Based Skill Discovery (pi-mono-inspired)

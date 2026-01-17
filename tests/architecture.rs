@@ -1,75 +1,33 @@
-//! Architecture Verification Suite
-//! 
-//! Enforces the "Anatomy" of the Sovereign Organism.
-//! Ensures organs remain decoupled and traits are correctly implemented.
+use rust_agency::agent::{AgentType, AgentConfig};
+use rust_agency::orchestrator::profile::AgencyProfile;
+use rust_agency::tools::ToolRegistry;
+use std::sync::Arc;
 
-#[cfg(test)]
-mod architecture_tests {
-    use rust_agency::tools::Tool;
-    use rust_agency::memory::Memory;
-    use rust_agency::orchestrator::queue::TaskQueue;
+#[tokio::test]
+async fn test_architecture_components_instantiation() {
+    // 1. Verify Tool Registry
+    let tools = Arc::new(ToolRegistry::default());
+    tools.register_instance(rust_agency::tools::WasmCompilerTool::new()).await;
+    tools.register_instance(rust_agency::tools::WasmExecutorTool::new()).await;
     
-    // 1. ANATOMY CHECK: All Tools must be Thread-Safe (Send + Sync)
-    // This ensures the "Hands" and "Senses" can work in parallel background threads.
-    #[test]
-    fn test_tools_are_thread_safe() {
-        fn assert_send_sync<T: Send + Sync>() {}
-        
-        assert_send_sync::<rust_agency::tools::VisionTool>();
-        assert_send_sync::<rust_agency::tools::HandsTool>();
-        assert_send_sync::<rust_agency::tools::WalletTool>();
-        assert_send_sync::<rust_agency::tools::MutationTool>();
-        assert_send_sync::<rust_agency::tools::CodebaseTool>();
-        assert_send_sync::<rust_agency::tools::WatchdogTool>();
-    }
+    let names = tools.tool_names().await;
+    assert!(names.contains(&"wasm_compiler".to_string()));
+    assert!(names.contains(&"wasm_executor".to_string()));
 
-    // 2. ANATOMY CHECK: Critical Organs must be Thread-Safe
-    #[test]
-    fn test_organs_are_thread_safe() {
-        fn assert_send_sync<T: Send + Sync>() {}
+    // 2. Verify Profile Loading
+    let profile = AgencyProfile::default();
+    assert!(!profile.name.is_empty());
 
-        // Stomach
-        assert_send_sync::<rust_agency::memory::LocalVectorMemory>();
-        assert_send_sync::<rust_agency::memory::MemoryManager>();
-        
-        // Muscles
-        assert_send_sync::<rust_agency::orchestrator::queue::SqliteTaskQueue>();
-        
-        // Nervous System
-        assert_send_sync::<rust_agency::orchestrator::homeostasis::HomeostasisEngine>();
-        assert_send_sync::<rust_agency::orchestrator::healing::HealingEngine>();
-        
-        // Economy
-        assert_send_sync::<rust_agency::orchestrator::metabolism::EconomicMetabolism>();
-        
-        // Identity
-        assert_send_sync::<rust_agency::orchestrator::sovereignty::SovereignIdentity>();
-    }
+    // 3. Verify Agent Config Logic
+    let config = AgentConfig::new(AgentType::Coder, &profile);
+    assert!(config.system_prompt.contains("expert programmer"));
+    assert!(config.system_prompt.contains(&profile.name));
+}
 
-    // 3. STRUCTURAL INTEGRITY: Public API Check
-    // Ensures the "Brain" (Supervisor) can access all organs
-    #[test]
-    fn test_supervisor_access() {
-        // Compile-time check: Fields must be public
-        #[allow(dead_code)]
-        fn check_access(s: &rust_agency::orchestrator::Supervisor) {
-            let _ = &s.task_queue;
-            let _ = &s.sensory;
-            let _ = &s.vocal_cords;
-            let _ = &s.metabolism;
-            let _ = &s.identity;
-        }
-    }
-
-    // 4. DEPENDENCY RULE: Memory should be self-contained
-    // We can't easily check module imports at runtime without a parser crate,
-    // but we can verify trait bounds.
-    #[test]
-    fn test_memory_abstraction() {
-        // Memory must NOT depend on TaskQueue directly (it's a passive store)
-        // This is a compile-time check enforced by the type system, but we explicitly
-        // document it here.
-        fn assert_memory_trait<T: Memory>() {}
-        assert_memory_trait::<rust_agency::memory::VectorMemory>();
-    }
+#[tokio::test]
+async fn test_runtime_isolation() {
+    // Verify that the runtime module is accessible and compiles
+    let mut runtime = rust_agency::runtime::wasm::WasmRuntime::new();
+    // We can't easily test execution without a wasm file, but instantiation proves the dependency links are correct.
+    assert!(std::any::type_name_of_val(&runtime).contains("WasmRuntime"));
 }

@@ -37,6 +37,9 @@ zstd = "0.13"
 # ort = { path = "crates/ort", default-features = false, features = ["load-dynamic", "coreml", "half"] }
 ort = { version = "2.0.0-rc.11", default-features = false, features = ["load-dynamic", "coreml", "half"] }
 
+# WASM Runtime (Self-Correction Engine)
+wasmer = "4.2"
+
 tokenizers = "0.20"
 ndarray = "0.15.6"
 ndarray-rand = "0.14"

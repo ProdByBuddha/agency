@@ -28,6 +28,8 @@ mod swarm_bounty;
 mod mutation;
 mod wallet;
 mod hands;
+mod wasm_compiler;
+mod wasm_executor;
 
 pub use web_search::WebSearchTool;
 pub use speaker_rs::SpeakerRsTool;
@@ -54,6 +56,8 @@ pub use swarm_bounty::SwarmBountyTool;
 pub use mutation::MutationTool;
 pub use wallet::WalletTool;
 pub use hands::HandsTool;
+pub use wasm_compiler::WasmCompilerTool;
+pub use wasm_executor::WasmExecutorTool;
 
 use crate::agent::{AgentResult, LadeQuadrant};
 use crate::orchestrator::AgencyEvent;
