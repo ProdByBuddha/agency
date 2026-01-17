@@ -30,6 +30,8 @@ pub mod debt;
 pub mod cli;
 pub mod context;
 pub mod optimal_info;
+pub mod crystallizer;
+
 #[macro_use]
 pub mod event_bus;
 pub mod a2a;

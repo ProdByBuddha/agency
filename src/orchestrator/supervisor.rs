@@ -179,6 +179,21 @@ impl Supervisor {
                 if task.kind == "memory_consolidation" {
                     info!("Supervisor Worker: Performing memory consolidation (Dreaming)...");
                     if let Some(ref memory) = self.memory {
+                        
+                        // SOTA: Skill Crystallization (Proto-AGI Gap #2)
+                        // Before we compress text, let's see if we can extract code.
+                        let crystallizer = crate::orchestrator::crystallizer::SkillCrystallizer::new(
+                            self.provider.clone(),
+                            self.tools.clone(),
+                            memory.clone()
+                        );
+                        
+                        if let Ok(count) = crystallizer.crystallize().await {
+                            if count > 0 {
+                                info!("💎 Dreaming: Successfully crystallized {} new skills from experience.", count);
+                            }
+                        }
+
                         // SOTA: Cognitive Dreaming Phase
                         if let Ok(cold_memories) = memory.get_cold_memories(20).await {
                             if !cold_memories.is_empty() {
