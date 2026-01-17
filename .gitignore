@@ -1,5 +1,8 @@
 # Rust
-/target
+target/
+Cargo.lock
+**/target/
+**/Cargo.lock
 
 # Python
 __pycache__/
@@ -51,6 +54,10 @@ current-isc.json
 ralph-loop.local.md
 
 # PAI Operational Data
+node_modules/
+**/node_modules/
+dist/
+**/dist/
 /MEMORY/
 /History/
 /State/
@@ -62,10 +69,6 @@ ralph-loop.local.md
 # IDEs
 .vscode/
 .idea/
-
-Cargo.lock
-*.onnx*
-*.safetensors
 
 # Large Model Artifacts
 *.onnx

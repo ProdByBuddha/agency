@@ -1,0 +1,5 @@
+# This file is used to define the owners of the code in the repository.
+# GitHub uses this file to automatically request reviews from these users.
+
+# Match all files to ProdByBuddha
+* @ProdByBuddha
