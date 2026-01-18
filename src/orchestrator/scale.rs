@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::collections::HashMap;
+use crate::orchestrator::aggregation::ScaleElasticity;
 
 /// FPF-aligned Scale Classes (C.18.1 SLL)
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -45,7 +46,7 @@ pub struct ScaleProfile {
     /// S: Predicted token/compute cost
     pub predicted_complexity: f32,
     /// χ: Scale Elasticity (rising, knee, flat)
-    pub elasticity: String,
+    pub elasticity: ScaleElasticity,
     pub target_model: String,
 }
 
@@ -65,14 +66,13 @@ impl ScaleProfile {
         // FPF Integration: Scaling-Law Lens (SLL)
         // Complexity mapped to scale classes
         let (class, model_key, elasticity) = if complexity < 0.15 {
-            // Very simple strings/greetings now default to Logic/Tiny
-            (ScaleClass::Logic, "tiny", "flat")
+            (ScaleClass::Logic, "tiny", ScaleElasticity::Flat)
         } else if complexity < 0.3 {
-            (ScaleClass::Tiny, "tiny", "flat")
+            (ScaleClass::Tiny, "tiny", ScaleElasticity::Flat)
         } else if complexity < 0.7 {
-            (ScaleClass::Standard, "standard", "rising")
+            (ScaleClass::Standard, "standard", ScaleElasticity::Rising)
         } else {
-            (ScaleClass::Heavy, "heavy", "knee")
+            (ScaleClass::Heavy, "heavy", ScaleElasticity::Knee)
         };
 
         let target_model = defaults.get(model_key).cloned().unwrap_or_else(|| {
@@ -87,7 +87,7 @@ impl ScaleProfile {
         Self {
             class,
             predicted_complexity: complexity,
-            elasticity: elasticity.to_string(),
+            elasticity,
             target_model,
         }
     }
@@ -121,15 +121,15 @@ impl ScaleProfile {
 
         Self {
             class,
-            predicted_complexity: 1.0, // Forced escalation
-            elasticity: "flat".to_string(),
+            predicted_complexity: 1.0,
+            elasticity: ScaleElasticity::Flat,
             target_model,
         }
     }
 
     pub fn format_for_audit(&self) -> String {
         format!(
-            "SLL PROFILE: Class={:?}, Complexity={:.2}, Elasticity={}, Model={}",
+            "SLL PROFILE: Class={:?}, Complexity={:.2}, Elasticity={:?}, Model={}",
             self.class, self.predicted_complexity, self.elasticity, self.target_model
         )
     }

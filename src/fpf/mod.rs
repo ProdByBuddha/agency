@@ -1,5 +1,6 @@
 pub mod holon;
 pub mod context;
+pub mod boundary;
 pub mod role;
 pub mod role_state;
 pub mod role_algebra;

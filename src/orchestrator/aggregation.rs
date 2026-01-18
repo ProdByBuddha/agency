@@ -20,6 +20,16 @@ pub struct Candidate {
     pub assurance: AssuranceLevel,
     /// Reward score provided by the Reinforcement Model (RLM)
     pub reward_score: Option<f32>,
+    /// SLL: Scale Elasticity (χ) - Qualitative class of improvement (C.18.1)
+    pub scale_elasticity: ScaleElasticity,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ScaleElasticity {
+    Rising, // High uplift potential
+    Knee,   // Diminishing returns starting
+    Flat,   // Ceiling reached
+    Unknown,
 }
 
 /// FPF-aligned Result Portfolio (G.9)
@@ -81,7 +91,7 @@ pub struct Gamma;
 
 impl Gamma {
     /// FPF Standard: Pareto-Dominance Selection (A.0 - ParetoOnly default)
-    /// Given a portfolio, select the candidate that optimizes the N-U-C-D Objective Vector.
+    /// Given a portfolio, select the candidate that optimizes the N-U-C-D-χ Objective Vector.
     pub fn select_pareto_winner(portfolio: &ResultPortfolio) -> Option<usize> {
         if portfolio.candidates.is_empty() { return None; }
 
@@ -93,9 +103,18 @@ impl Gamma {
             let raw_quality = c.reward_score.unwrap_or(c.quality_score);
             let constraint_fit = 1.0 - c.risk_score;
             
-            // Score = U * C_fit * (1 + N) / Cost_norm
+            // SLL uplift: Rising elasticity increases the attractiveness of a candidate 
+            // for exploitation in future loops.
+            let sll_uplift = match c.scale_elasticity {
+                ScaleElasticity::Rising => 1.2,
+                ScaleElasticity::Knee => 1.0,
+                ScaleElasticity::Flat => 0.8, // Penalize stalled scaling
+                ScaleElasticity::Unknown => 1.0,
+            };
+
+            // Score = U * C_fit * (1 + N) * χ / Cost_norm
             let cost_norm = 1.0 + (c.cost_tokens as f32 / 1000.0);
-            let score = (raw_quality * constraint_fit * (1.0 + c.novelty_score)) / cost_norm;
+            let score = (raw_quality * constraint_fit * (1.0 + c.novelty_score) * sll_uplift) / cost_norm;
             
             if score > max_score {
                 max_score = score;

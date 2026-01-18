@@ -131,14 +131,15 @@ impl AutonomousMachine {
 
         if let Some(ref rm) = self.reward_model {
             let candidate = Candidate {
-                agent_id: "AutonomousMachine".to_string(),
+                agent_id: "Autonomous".to_string(),
                 answer: response.answer.clone(),
-                quality_score: if response.success { 0.9 } else { 0.1 },
+                quality_score: if response.success { 0.8 } else { 0.1 },
                 risk_score: 0.1,
                 novelty_score: 0.0,
-                cost_tokens: 0,
+                cost_tokens: response.cost_tokens,
                 assurance: crate::orchestrator::AssuranceLevel::L2,
                 reward_score: None,
+                scale_elasticity: crate::orchestrator::aggregation::ScaleElasticity::Unknown,
             };
             if let Ok(scores) = rm.score(&self.objective.goal, &[candidate]).await {
                 if let Some(&er) = scores.first() {

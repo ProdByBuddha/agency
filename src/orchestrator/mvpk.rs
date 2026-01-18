@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::orchestrator::{WorkRecord, governance::NormSquare, debt::DebtRegistry, ScaleClass};
+use crate::orchestrator::{WorkRecord, governance::NormSquare, debt::DebtRegistry, ScaleClass, aggregation::ScaleElasticity};
 use chrono::Utc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub struct Telemetry {
     /// FPF-aligned Scale Class (C.18.1)
     pub scale: ScaleClass,
     pub model: String,
-    pub elasticity: String,
+    pub elasticity: ScaleElasticity,
 }
 
 impl Publication {
@@ -90,7 +90,7 @@ impl Publication {
         out.push_str(&format!("  - Latency: {}ms\n", self.telemetry.latency_ms));
         out.push_str(&format!("  - Tools: {}\n", self.telemetry.tool_calls));
         out.push_str(&format!("  - Evidence: {}\n", self.telemetry.evidence_count));
-        out.push_str(&format!("  - Scale: {:?} ({})\n", self.telemetry.scale, self.telemetry.elasticity));
+        out.push_str(&format!("  - Scale: {:?} (Elasticity: {:?})\n", self.telemetry.scale, self.telemetry.elasticity));
         out.push_str(&format!("  - Model: {}\n", self.telemetry.model));
         out.push_str(&format!("  - Reliability (R): {:.2}\n\n", self.reliability));
         

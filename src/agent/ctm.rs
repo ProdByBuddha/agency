@@ -106,6 +106,7 @@ impl ContinuousThoughtMachine {
                     cost_tokens: 0,
                     assurance: crate::orchestrator::AssuranceLevel::L0,
                     reward_score: None,
+                    scale_elasticity: crate::orchestrator::aggregation::ScaleElasticity::Unknown,
                 };
                 if let Ok(scores) = rm.score(query, &[candidate]).await {
                     reward = scores.first().cloned();

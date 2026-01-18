@@ -24,7 +24,8 @@ use crate::orchestrator::{
     Objective, profile::AgencyProfile,
     aggregation::{Candidate, Gamma, RewardModel},
     ResultPortfolio, ScaleProfile, AgencyEvent,
-    queue::{TaskQueue, SqliteTaskQueue}
+    queue::{TaskQueue, SqliteTaskQueue},
+    governance::NormSquare
 };
 use pai_core::{HookManager, HookEvent, HookEventType};
 
@@ -587,6 +588,7 @@ impl Supervisor {
                             cost_tokens: res.cost_tokens,
                             assurance: crate::orchestrator::AssuranceLevel::L1,
                             reward_score: None,
+                            scale_elasticity: crate::orchestrator::aggregation::ScaleElasticity::Unknown,
                         });
                         responses.push(res);
                     },
@@ -652,11 +654,19 @@ impl Supervisor {
         work.trace = final_res.steps.clone();
         work.complete(final_res.success, crate::orchestrator::AssuranceLevel::L1);
 
+        // SOTA: Boundary Norm Square Routing (A.6.B)
+        let mut square = NormSquare::new();
+        if let Some(ref thought) = final_res.thought {
+            for line in thought.lines() {
+                square.classify_and_add(line);
+            }
+        }
+
         let mut publication = Publication::project(
             final_res.answer.clone(), 
             &work, 
             current_scale.clone(),
-            None, 
+            Some(square), 
             None, 
             None
         ).with_mvpk(final_res.thought.clone(), final_res.reliability);
@@ -742,12 +752,19 @@ impl Supervisor {
         work.trace = last_res.steps.clone();
         work.complete(last_res.success, crate::orchestrator::AssuranceLevel::L2);
         
+        let mut square = NormSquare::new();
+        if let Some(ref thought) = last_res.thought {
+            for line in thought.lines() {
+                square.classify_and_add(line);
+            }
+        }
+
         let heavy_profile = crate::orchestrator::ScaleProfile::new(0.9, 8.0);
         let publication = Publication::project(
             last_res.answer.clone(), 
             &work, 
             heavy_profile, 
-            None, 
+            Some(square), 
             None, 
             None
         ).with_mvpk(last_res.thought.clone(), last_res.reliability);

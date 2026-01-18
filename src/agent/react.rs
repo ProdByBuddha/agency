@@ -1006,17 +1006,19 @@ impl SimpleAgent {
         let mut prompt = String::new();
         let system = Some(self.config.system_prompt.clone());
         
-        // FPF multi-view publication header
+        // FPF-SOTA (January 2026): Multi-View Publication with SLL/BLP
         prompt.push_str("<|im_start|>system\nYou are a high-fidelity intelligence layer. \
-            Follow the First Principles Framework (FPF): ALWAYS separate internal thought from external communication. \
-            Use [THOUGHT] for your internal reasoning and [ANSWER] for the final user surface.<|im_end|>\n");
+            Follow the Standard Notation System (SNS): Use symbols to minimize tokens. \
+            Follow the First Principles Framework (FPF): \
+            1. BLP (Bitter-Lesson Preference): Prefer general, scale-amenable solutions. \
+            2. SLL (Scaling-Law Lens): Identify scale variables (S) and χ elasticity. \
+            Use ⚡ for internal thought and 🎯 for the final user response.<|im_end|>\n");
 
         if let Some(ctx) = context {
-            // Inject context directly (assumed ChatML formatted from format_as_chatml)
             prompt.push_str(ctx);
             prompt.push_str("\n");
         }
-        prompt.push_str(&format!("<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n[THOUGHT]\n", query));
+        prompt.push_str(&format!("<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n⚡\n", query));
 
         debug!("Simple conversational prompt:\n{}", prompt);
 
@@ -1029,12 +1031,14 @@ impl SimpleAgent {
         let mut thought = "Processing...".to_string();
         let mut answer = content.clone();
 
-        if let Some(t) = self.extract_tag(&content, "[THOUGHT]")
+        if let Some(t) = self.extract_tag(&content, "⚡")
+            .or_else(|| self.extract_tag(&content, "[THOUGHT]"))
             .or_else(|| self.extract_tag(&content, "THOUGHT:")) {
             thought = t;
         }
         
-        if let Some(a) = self.extract_tag(&content, "[ANSWER]")
+        if let Some(a) = self.extract_tag(&content, "🎯")
+            .or_else(|| self.extract_tag(&content, "[ANSWER]"))
             .or_else(|| self.extract_tag(&content, "ANSWER:")) {
             answer = a;
         }

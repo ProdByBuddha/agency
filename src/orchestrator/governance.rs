@@ -74,6 +74,23 @@ impl NormSquare {
         square
     }
 
+    /// SOTA: Automatic Classification (RPR-SERV)
+    /// Routes a statement into the appropriate quadrant based on linguistic triggers.
+    pub fn classify_and_add(&mut self, text: &str) {
+        let t = text.to_lowercase();
+        
+        if t.contains("shall") || t.contains("must") || t.contains("owe") || t.contains("commit") || t.contains("obligation") {
+            self.deontics.push(crate::orchestrator::Commitment::new(text, crate::orchestrator::Modality::Must, "system"));
+        } else if t.contains("allow") || t.contains("block") || t.contains("gate") || t.contains("permit") || t.contains("admissible") {
+            self.add_gate("DynamicGate", GateStatus::Green, text);
+        } else if t.contains("observed") || t.contains("result") || t.contains("fact") || t.contains("evidence") || t.contains("found") {
+            self.effects.push(text.to_string());
+        } else {
+            // Default: Law/Definition (L)
+            self.laws.push(text.to_string());
+        }
+    }
+
     pub fn add_gate(&mut self, name: impl Into<String>, status: GateStatus, rationale: impl Into<String>) {
         self.admissibility.push(AdmissibilityGate {
             name: name.into(),
