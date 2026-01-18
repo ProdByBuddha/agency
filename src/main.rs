@@ -159,7 +159,7 @@ async fn main() -> Result<()> {
         let uap_tools = Arc::new(ToolRegistry::default());
         // For the UAP exposure, we create a default ReActAgent as the performer
         let uap_config = rust_agency::agent::AgentConfig::new(rust_agency::AgentType::GeneralChat, &rust_agency::orchestrator::profile::AgencyProfile::default());
-        let uap_agent = Arc::new(rust_agency::agent::ReActAgent::new_with_provider(uap_provider, uap_config, uap_tools));
+        let uap_agent = Arc::new(rust_agency::agent::ReActAgent::new_with_provider(uap_provider.clone() as Arc<dyn rust_agency::agent::LLMProvider>, uap_config, uap_tools));
         
         let uap_service = UapGrpcWrapper::new(uap_agent);
         let uap_addr = std::env::var("AGENCY_UAP_ADDR").unwrap_or_else(|_| "0.0.0.0:50051".to_string()).parse()?;
@@ -244,6 +244,7 @@ async fn main() -> Result<()> {
         tools.register_instance(VisionTool::new()),
         tools.register_instance(ForgeTool::new("custom_tools", tools.clone())),
         tools.register_instance(SystemTool::new(manager.clone())),
+        tools.register_instance(rust_agency::tools::ProviderTool::new(provider.clone())),
         tools.register_instance(rust_agency::tools::WasmCompilerTool::new()),
         tools.register_instance(rust_agency::tools::WasmExecutorTool::new())
     );
@@ -254,37 +255,6 @@ async fn main() -> Result<()> {
             let name = skill.name();
             tools.register_instance(skill).await;
             println!("📚 Discovered Skill: {}", name);
-        }
-    }
-
-    // SOTA: Dynamic MCP Server Integration
-    if let Ok(content) = std::fs::read_to_string("config/mcp_servers.json") {
-        info!("📂 Loading MCP Servers from config/mcp_servers.json...");
-        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(servers) = config["servers"].as_array() {
-                for server_cfg in servers {
-                    let name = server_cfg["name"].as_str().unwrap_or("unnamed");
-                    let command = server_cfg["command"].as_str().unwrap_or("");
-                    let args: Vec<String> = server_cfg["args"]
-                        .as_array()
-                        .unwrap_or(&vec![])
-                        .iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect();
-
-                    if !command.is_empty() {
-                        match McpServer::spawn(name, command, &args).await {
-                            Ok(server) => {
-                                match tools.register_mcp_server(server).await {
-                                    Ok(count) => println!("🔌 Connected to MCP Server '{}' ({} tools loaded)", name, count),
-                                    Err(e) => tracing::warn!("Failed to register tools from MCP server '{}': {}", name, e),
-                                }
-                            }
-                            Err(e) => tracing::warn!("Failed to spawn MCP server '{}': {}", name, e),
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -300,7 +270,7 @@ async fn main() -> Result<()> {
     println!("👤 Agency Profile loaded: {}", profile.name);
 
     // Initialize supervisor
-    let mut supervisor = Supervisor::new_with_provider(provider.clone(), tools.clone())
+    let mut supervisor = Supervisor::new_with_provider(provider.clone() as Arc<dyn rust_agency::agent::LLMProvider>, tools.clone())
         .await
         .with_memory(memory.clone())
         .with_session(session_manager)
@@ -346,6 +316,46 @@ async fn main() -> Result<()> {
         
         if let Err(e) = run_server(server_state).await {
             eprintln!("❌ Server crashed: {}", e);
+        }
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // ASYNC: Load MCP Servers in Background
+    // ──────────────────────────────────────────────────────────────────────────
+    let mcp_tools = tools.clone();
+    tokio::spawn(async move {
+        // SOTA: Dynamic MCP Server Integration
+        if let Ok(content) = std::fs::read_to_string("config/mcp_servers.json") {
+            info!("📂 Loading MCP Servers from config/mcp_servers.json...");
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(servers) = config["servers"].as_array() {
+                    for server_cfg in servers {
+                        let name = server_cfg["name"].as_str().unwrap_or("unnamed");
+                        let command = server_cfg["command"].as_str().unwrap_or("");
+                        let args: Vec<String> = server_cfg["args"]
+                            .as_array()
+                            .unwrap_or(&vec![])
+                            .iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect();
+
+                        if !command.is_empty() {
+                                                    match McpServer::spawn(name, command, &args).await {
+                                                        Ok(server) => {
+                                                            // SOTA: Automatic Root Registration (FPF Grounding)
+                                                            let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                                                            let _ = server.add_root(&cwd.to_string_lossy()).await;
+                            
+                                                            match mcp_tools.register_mcp_server(server).await {
+                                                                Ok(count) => println!("🔌 Connected to MCP Server '{}' ({} tools loaded)", name, count),
+                                                                Err(e) => tracing::warn!("Failed to register tools from MCP server '{}': {}", name, e),
+                                                            }
+                                                        }
+                                                        Err(e) => tracing::warn!("Failed to spawn MCP server '{}': {}", name, e),
+                                                    }                        }
+                    }
+                }
+            }
         }
     });
 

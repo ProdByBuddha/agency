@@ -1,0 +1,25 @@
+{
+  "name": "bluetooth_manager",
+  "description": "Unified tool for Bluetooth operations including discovery, reading, and writing data.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["discover", "read", "write"],
+        "description": "The bluetooth operation to perform"
+      },
+      "device_name": {
+        "type": "string",
+        "description": "Target device name or address (required for read/write)"
+      },
+      "payload": {
+        "type": "string",
+        "description": "Data to write (required for write action)"
+      }
+    },
+    "required": ["action"]
+  },
+  "language": "rust",
+  "script_path": "bluetooth_manager.rs"
+}

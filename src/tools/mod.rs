@@ -28,6 +28,8 @@ mod swarm_bounty;
 mod mutation;
 mod wallet;
 mod hands;
+mod provider;
+pub use provider::ProviderTool;
 mod wasm_compiler;
 mod wasm_executor;
 

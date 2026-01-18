@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::{Child, Command, ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use tracing::{info, debug};
@@ -55,15 +55,18 @@ pub struct McpToolDefinition {
 /// MCP Server Manager
 pub struct McpServer {
     name: String,
-    child: Mutex<Child>,
+    stdin: Mutex<ChildStdin>,
+    stdout: Mutex<BufReader<ChildStdout>>,
     request_counter: Mutex<u64>,
+    roots: Mutex<Vec<String>>,
+    _child: Mutex<Child>, // Keep child alive
 }
 
 impl McpServer {
     pub async fn spawn(name: &str, command: &str, args: &[String]) -> anyhow::Result<Arc<Self>> {
         info!("Spawning MCP server '{}' via {} {:?}...", name, command, args);
         
-        let child = Command::new(command)
+        let mut child = Command::new(command)
             .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -71,16 +74,38 @@ impl McpServer {
             .spawn()
             .context("Failed to spawn MCP server process")?;
 
+        let stdin = child.stdin.take().context("Failed to open stdin")?;
+        let stdout = child.stdout.take().context("Failed to open stdout")?;
+
         let server = Arc::new(Self {
             name: name.to_string(),
-            child: Mutex::new(child),
+            stdin: Mutex::new(stdin),
+            stdout: Mutex::new(BufReader::new(stdout)),
             request_counter: Mutex::new(0),
+            roots: Mutex::new(Vec::new()),
+            _child: Mutex::new(child),
         });
 
         // Initialize MCP
         server.initialize().await?;
         
         Ok(server)
+    }
+
+    /// Add a root directory to this server
+    pub async fn add_root(&self, path: &str) -> anyhow::Result<()> {
+        let mut roots = self.roots.lock().await;
+        // URI format: file:///path/to/dir
+        let uri = if path.starts_with("file://") {
+            path.to_string()
+        } else {
+            format!("file://{}", path)
+        };
+        
+        if !roots.contains(&uri) {
+            roots.push(uri);
+        }
+        Ok(())
     }
 
     async fn call(&self, method: &str, params: Option<Value>) -> anyhow::Result<Value> {
@@ -99,31 +124,65 @@ impl McpServer {
         let request_str = serde_json::to_string(&request)? + "\n";
         debug!("MCP Request to {}: {}", self.name, request_str.trim());
 
-        let mut child = self.child.lock().await;
-        let stdin = child.stdin.as_mut().context("Failed to open stdin")?;
-        stdin.write_all(request_str.as_bytes()).await?;
-        stdin.flush().await?;
-
-        let stdout = child.stdout.as_mut().context("Failed to open stdout")?;
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        
-        debug!("MCP Response from {}: {}", self.name, line.trim());
-
-        let response: JsonRpcResponse = serde_json::from_str(&line)?;
-        
-        if let Some(error) = response.error {
-            return Err(anyhow!("MCP Error: {} (code {})", error.message, error.code));
+        // Send request
+        {
+            let mut stdin = self.stdin.lock().await;
+            stdin.write_all(request_str.as_bytes()).await?;
+            stdin.flush().await?;
         }
 
-        response.result.context("MCP response missing result and error")
+        // Listen for response
+        let mut reader = self.stdout.lock().await;
+        
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).await?;
+            if line.is_empty() { return Err(anyhow!("MCP server disconnected")); }
+            
+            debug!("MCP Data from {}: {}", self.name, line.trim());
+            let response: Value = serde_json::from_str(&line)?;
+
+            // Case 1: Response to our request
+            if response["id"] == json!(id) {
+                if let Some(error) = response.get("error") {
+                    let err: JsonRpcError = serde_json::from_value(error.clone())?;
+                    return Err(anyhow!("MCP Error: {} (code {})", err.message, err.code));
+                }
+                return Ok(response["result"].clone());
+            }
+
+            // Case 2: Server-initiated request (e.g. roots/list)
+            if response.get("method").is_some() && response.get("id").is_some() {
+                let method = response["method"].as_str().unwrap_or("");
+                let req_id = response["id"].clone();
+                
+                if method == "roots/list" {
+                    let roots_guard = self.roots.lock().await;
+                    let roots_list: Vec<Value> = roots_guard.iter().map(|r| json!({ "uri": r })).collect();
+                    let res = json!({
+                        "jsonrpc": "2.0",
+                        "id": req_id,
+                        "result": { "roots": roots_list }
+                    });
+                    
+                    // Reply to server
+                    let mut stdin = self.stdin.lock().await;
+                    stdin.write_all((serde_json::to_string(&res)? + "\n").as_bytes()).await?;
+                    stdin.flush().await?;
+                    continue;
+                }
+            }
+        }
     }
 
     async fn initialize(&self) -> anyhow::Result<()> {
         let params = json!({
             "protocolVersion": "2024-11-05",
-            "capabilities": {},
+            "capabilities": {
+                "roots": {
+                    "listChanged": true
+                }
+            },
             "clientInfo": {
                 "name": "rust_agency",
                 "version": "0.1.0"
@@ -137,8 +196,8 @@ impl McpServer {
             "jsonrpc": "2.0",
             "method": "notifications/initialized"
         });
-        let mut child = self.child.lock().await;
-        let stdin = child.stdin.as_mut().context("Failed to open stdin")?;
+        
+        let mut stdin = self.stdin.lock().await;
         stdin.write_all((serde_json::to_string(&notification)? + "\n").as_bytes()).await?;
         stdin.flush().await?;
 

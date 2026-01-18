@@ -7,7 +7,7 @@ mod reflection;
 mod types;
 mod autonomous;
 mod background;
-mod provider;
+pub mod provider;
 mod ctm;
 mod cache;
 pub mod nqd;

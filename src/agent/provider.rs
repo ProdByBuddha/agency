@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use reqwest::Client;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{info, debug, error};
 use lazy_static::lazy_static;
 use std::fs::File;
@@ -892,13 +892,21 @@ impl LLMProvider for OllamaCloudProvider {
 
         tokio::task::spawn(async move {
             let mut stream = res.bytes_stream();
+            let mut buffer = String::new();
+
             while let Some(item) = stream.next().await {
                 match item {
                     Ok(bytes) => {
-                        let text = String::from_utf8_lossy(&bytes);
-                        for line in text.lines() {
-                            if line.trim().is_empty() { continue; }
-                            match serde_json::from_str::<serde_json::Value>(line) {
+                        let chunk = String::from_utf8_lossy(&bytes);
+                        buffer.push_str(&chunk);
+
+                        while let Some(newline_idx) = buffer.find('\n') {
+                            let line = buffer[..newline_idx].trim().to_string();
+                            buffer = buffer[newline_idx + 1..].to_string();
+
+                            if line.is_empty() { continue; }
+
+                            match serde_json::from_str::<serde_json::Value>(&line) {
                                 Ok(json) => {
                                     if let Some(content) = json["message"]["content"].as_str() {
                                         let _ = tx.send(Ok(content.to_string()));
@@ -933,9 +941,46 @@ impl LLMProvider for OllamaCloudProvider {
     }
 }
 
-pub fn dynamic_provider() -> Arc<dyn LLMProvider> {
-    let provider_type = std::env::var("AGENCY_PROVIDER").unwrap_or_else(|_| "nexus".to_string());
-    
+pub struct SwitchableProvider {
+    inner: Arc<RwLock<Arc<dyn LLMProvider>>>,
+}
+
+impl SwitchableProvider {
+    pub fn new(initial: Arc<dyn LLMProvider>) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(initial)),
+        }
+    }
+
+    pub async fn switch_to(&self, new_provider: Arc<dyn LLMProvider>) {
+        let mut lock = self.inner.write().await;
+        *lock = new_provider;
+    }
+}
+
+#[async_trait]
+impl LLMProvider for SwitchableProvider {
+    async fn generate(&self, model: &str, prompt: String, system: Option<String>) -> Result<String> {
+        let provider = self.inner.read().await.clone();
+        provider.generate(model, prompt, system).await
+    }
+
+    async fn generate_stream(&self, model: &str, prompt: String, system: Option<String>) -> Result<BoxStream<'static, Result<String>>> {
+        let provider = self.inner.read().await.clone();
+        provider.generate_stream(model, prompt, system).await
+    }
+
+    fn get_lock(&self) -> Arc<Mutex<()>> {
+        GLOBAL_HW_LOCK.clone()
+    }
+
+    async fn notify(&self, message: &str) -> Result<()> {
+        let provider = self.inner.read().await.clone();
+        provider.notify(message).await
+    }
+}
+
+pub fn create_provider_by_type(provider_type: &str) -> Arc<dyn LLMProvider> {
     match provider_type.to_lowercase().as_str() {
         "ollama" => {
             let host = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost".to_string());
@@ -958,7 +1003,7 @@ pub fn dynamic_provider() -> Arc<dyn LLMProvider> {
             println!("☁️  Initializing OpenAI-Compatible Cloud Provider at {}...", base_url);
             Arc::new(OpenAICompatibleProvider::new(base_url, api_key))
         }
-        "zai" | "glm" => {
+        "zai" | "glm" | "zhipu" => {
             let base_url = "https://api.z.ai/api/paas/v4".to_string();
             let api_key = std::env::var("ZAI_API_KEY").ok();
             
@@ -974,6 +1019,12 @@ pub fn dynamic_provider() -> Arc<dyn LLMProvider> {
             Arc::new(RemoteNexusProvider::new())
         }
     }
+}
+
+pub fn dynamic_provider() -> Arc<SwitchableProvider> {
+    let provider_type = std::env::var("AGENCY_PROVIDER").unwrap_or_else(|_| "zai".to_string());
+    let initial = create_provider_by_type(&provider_type);
+    Arc::new(SwitchableProvider::new(initial))
 }
 
 #[cfg(test)]

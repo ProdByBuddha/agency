@@ -106,7 +106,10 @@ impl Supervisor {
         tools.register_instance(crate::tools::HandsTool::new()).await;
 
         // Start default project file sensor (FPF Grounding)
-        let _ = sensory.watch_file(".").await;
+        // Restrict to 'config' to avoid scanning node_modules/target and hanging startup.
+        if std::path::Path::new("config").exists() {
+            let _ = sensory.watch_file("config").await;
+        }
 
         Self {
             hw_lock: provider.get_lock(),

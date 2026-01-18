@@ -88,3 +88,5 @@ agency_profile.json
 /artifacts/bin/
 agency.log*
 memory.corrupt*
+artifacts/last_screen.png
+agency_tasks.db

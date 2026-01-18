@@ -17,12 +17,12 @@ impl AgentType {
     /// Get the default model for this agent type
     pub fn default_model(&self) -> &'static str {
         match self {
-            AgentType::GeneralChat => "qwen2.5:3b-q4",
-            AgentType::Reasoner => "qwen2.5:3b-q4",
-            AgentType::Coder => "qwen2.5-coder:7b-q4",
-            AgentType::Researcher => "qwen2.5:3b-q4",
-            AgentType::Planner => "qwen2.5:3b-q4",
-            AgentType::Reviewer => "qwen2.5:3b-q4",
+            AgentType::GeneralChat => "glm-4-flash",
+            AgentType::Reasoner => "glm-4",
+            AgentType::Coder => "glm-4",
+            AgentType::Researcher => "glm-4-flash",
+            AgentType::Planner => "glm-4",
+            AgentType::Reviewer => "glm-4",
         }
     }
 

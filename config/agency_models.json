@@ -1,112 +1,22 @@
 {
   "models": [
     {
-      "name": "llama3.2:1b",
-      "repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
+      "name": "glm-4",
+      "repo": "z-ai/glm-4",
       "revision": "main",
-      "tokenizer_repo": "meta-llama/Llama-3.2-1B-Instruct",
-      "is_quantized": true,
-      "quant_file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-      "description": "Llama 3.2 1B (Q4 Quantized) - Ultra-fast, low-resource inference."
-    },
-    {
-      "name": "llama3.2:3b",
-      "repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "meta-llama/Llama-3.2-3B-Instruct",
-      "is_quantized": true,
-      "quant_file": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
-      "description": "Llama 3.2 3B (Q4 Quantized) - The standard balanced model."
-    },
-    {
-      "name": "qwen2.5:3b-q4",
-      "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-3B-Instruct",
-      "is_quantized": true,
-      "quant_file": "qwen2.5-3b-instruct-q4_k_m.gguf",
-      "description": "Qwen 2.5 3B (Q4 Quantized) - High performance alternative to Llama 3.2."
-    },
-    {
-      "name": "qwen2.5:7b-q4",
-      "repo": "Qwen/Qwen2.5-7B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-7B-Instruct",
-      "is_quantized": true,
-      "quant_file": "qwen2.5-7b-instruct-q4_k_m.gguf",
-      "description": "Qwen 2.5 7B (Q4 Quantized) - Sharp reasoning, outperforms Llama 3.1 8B."
-    },
-    {
-      "name": "qwen2.5:14b-q4",
-      "repo": "Qwen/Qwen2.5-14B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-14B-Instruct",
-      "is_quantized": true,
-      "quant_file": "qwen2.5-14b-instruct-q4_k_m.gguf",
-      "description": "Qwen 2.5 14B (Q4 Quantized) - The 'Intelligence Ceiling' for 16GB RAM."
-    },
-    {
-      "name": "llama3.1:8b",
-      "repo": "MaziyarPanahi/Meta-Llama-3.1-8B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "meta-llama/Llama-3.2-3B-Instruct",
-      "is_quantized": true,
-      "quant_file": "Meta-Llama-3.1-8B-Instruct.Q4_K_M.gguf",
-      "description": "Llama 3.1 8B (Q4 Quantized) - Reliable long-context (128k) workhorse."
-    },
-    {
-      "name": "qwen2.5-coder:7b-q4",
-      "repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
-      "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-Coder-7B-Instruct",
-      "is_quantized": true,
-      "quant_file": "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
-      "description": "Qwen 2.5 Coder 7B (Q4 Quantized) - State-of-the-art open coding model."
-    },
-    {
-      "name": "qwen2.5-coder:0.5b",
-      "repo": "Qwen/Qwen2.5-Coder-0.5B-Instruct",
-      "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-Coder-0.5B-Instruct",
+      "tokenizer_repo": "z-ai/glm-4",
       "is_quantized": false,
       "quant_file": null,
-      "description": "Qwen 2.5 Coder 0.5B (F16) - Tiny specialized coding model in full precision."
+      "description": "Z.ai GLM-4 - Flagship model with advanced reasoning."
     },
     {
-      "name": "qwen2.5-coder:32b-q4",
-      "repo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+      "name": "glm-4-air",
+      "repo": "z-ai/glm-4-air",
       "revision": "main",
-      "tokenizer_repo": "Qwen/Qwen2.5-Coder-32B-Instruct",
-      "is_quantized": true,
-      "quant_file": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
-      "description": "Qwen 2.5 Coder 32B (Q4) - SOTA open coding model, highly recommended for Solidity and complex logic."
-    },
-    {
-      "name": "moondream2",
-      "repo": "santiagomed/candle-moondream",
-      "revision": "main",
-      "tokenizer_repo": "vikhyatk/moondream2",
-      "is_quantized": true,
-      "quant_file": "model-q4_0.gguf",
-      "description": "Moondream2 (Quantized) - Lightweight vision-language model for image understanding."
-    },
-    {
-      "name": "glm-4.7",
-      "repo": "z-ai/glm-4.7",
-      "revision": "main",
-      "tokenizer_repo": "z-ai/glm-4.7",
+      "tokenizer_repo": "z-ai/glm-4-air",
       "is_quantized": false,
       "quant_file": null,
-      "description": "Z.ai GLM-4.7 - Latest flagship flagship model with advanced reasoning and multi-lingual capabilities."
-    },
-    {
-      "name": "glm-4-plus",
-      "repo": "z-ai/glm-4-plus",
-      "revision": "main",
-      "tokenizer_repo": "z-ai/glm-4-plus",
-      "is_quantized": false,
-      "quant_file": null,
-      "description": "Z.ai GLM-4 Plus - Optimized for high-throughput agentic tasks."
+      "description": "Z.ai GLM-4 Air - High-performance balanced model."
     },
     {
       "name": "glm-4-flash",
@@ -115,14 +25,14 @@
       "tokenizer_repo": "z-ai/glm-4-flash",
       "is_quantized": false,
       "quant_file": null,
-      "description": "Z.ai GLM-4 Flash - Ultra-fast, low-latency model for real-time interaction."
+      "description": "Z.ai GLM-4 Flash - Ultra-fast, low-latency model."
     }
   ],
   "defaults": {
-    "tiny": "qwen2.5-coder:0.5b",
-    "standard": "qwen2.5:3b-q4",
-    "heavy": "glm-4.7",
-    "coder": "qwen2.5-coder:7b-q4",
+    "tiny": "glm-4-flash",
+    "standard": "glm-4-air",
+    "heavy": "glm-4",
+    "coder": "glm-4",
     "fast": "glm-4-flash"
   }
 }
