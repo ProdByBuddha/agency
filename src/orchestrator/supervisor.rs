@@ -528,7 +528,7 @@ impl Supervisor {
                 
                 // SOTA: Agent-specific model overrides
                 config.model = if agent_type == AgentType::Coder {
-                    let registry_file = std::fs::File::open("agency_models.json").ok();
+                    let registry_file = std::fs::File::open("config/agency_models.json").ok();
                     let coder_model = registry_file.and_then(|f| {
                         let v: serde_json::Value = serde_json::from_reader(f).ok()?;
                         v["defaults"]["coder"].as_str().map(|s| s.to_string())

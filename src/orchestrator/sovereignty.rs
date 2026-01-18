@@ -20,7 +20,7 @@ pub struct SovereignIdentity {
 
 impl SovereignIdentity {
     pub fn new() -> Result<Self> {
-        let key_path = PathBuf::from("agency_identity.pem");
+        let key_path = PathBuf::from("data/agency_identity.pem");
         
         let keypair = if key_path.exists() {
             info!("🔐 Sovereignty: Loading existing identity...");

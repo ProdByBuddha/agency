@@ -29,7 +29,7 @@ echo "🚀 Launching Conduit Matrix Server with MacOS Seatbelt Sandbox..."
 echo "🔒 Restricted to: $CONDUIT_DIR and Port $CONDUIT_PORT"
 
 # Run under sandbox-exec
-sandbox-exec -f conduit.sb \
+sandbox-exec -f config/conduit.sb \
              -D DATA_DIR="$(pwd)/conduit_data" \
              -D LOG_DIR="$(pwd)/logs" \
              ./conduit

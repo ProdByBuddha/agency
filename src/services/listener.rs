@@ -53,7 +53,7 @@ pub async fn run_listener_server() -> Result<()> {
     let vb = candle_transformers::quantized_var_builder::VarBuilder::from_gguf(&weights_filename, &device)?;
     let model = WhisperModel::Quantized(m::quantized_model::Whisper::load(&vb, config.clone())?);
     
-    let mel_bytes = include_bytes!("../../candle/candle-examples/examples/whisper/melfilters.bytes").as_slice();
+    let mel_bytes = include_bytes!("../../crates/candle/candle-examples/examples/whisper/melfilters.bytes").as_slice();
     let mut mel_filters = vec![0f32; mel_bytes.len() / 4];
     <byteorder::LittleEndian as byteorder::ByteOrder>::read_f32_into(mel_bytes, &mut mel_filters);
 

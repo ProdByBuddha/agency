@@ -13,7 +13,7 @@
 (allow network-outbound (remote ip "localhost:*"))
 
 ;; File Access: Config
-(allow file-read* (subpath "/Users/javoerokour/Desktop/BUDDHA/CODE/LAB/agency/otel-config.yaml"))
+(allow file-read* (subpath "/Users/javoerokour/Desktop/BUDDHA/CODE/LAB/agency/config/otel-config.yaml"))
 
 ;; File Access: Logs
 (allow file-read* file-write* (subpath "/Users/javoerokour/Desktop/BUDDHA/CODE/LAB/agency/logs"))

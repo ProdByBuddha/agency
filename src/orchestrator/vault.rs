@@ -32,7 +32,7 @@ pub struct AgencyVault {
 impl AgencyVault {
     pub fn new() -> Self {
         Self {
-            file_path: PathBuf::from("agency_vault.enc"),
+            file_path: PathBuf::from("data/agency_vault.enc"),
             data: None,
         }
     }

@@ -87,3 +87,4 @@ agency_history.jsonl
 agency_profile.json
 /artifacts/bin/
 agency.log*
+memory.corrupt*

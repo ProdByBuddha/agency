@@ -156,10 +156,36 @@ impl LocalVectorMemory {
     fn load(&mut self) -> Result<()> {
         if self.path.exists() {
             let file = File::open(&self.path)?;
-            let decoder = zstd::stream::read::Decoder::new(file)?;
-            let entries: Vec<MemoryEntry> = bincode::deserialize_from(decoder)?;
-            info!("Loaded {} memories into HOT cache", entries.len());
-            *self.hot_entries.blocking_write() = entries;
+            let decoder = match zstd::stream::read::Decoder::new(file) {
+                Ok(d) => d,
+                Err(e) => {
+                    error!("Memory Corruption Detected (Zstd init): {}", e);
+                    return self.recover_corrupt();
+                }
+            };
+            
+            match bincode::deserialize_from::<_, Vec<MemoryEntry>>(decoder) {
+                Ok(entries) => {
+                    info!("Loaded {} memories into HOT cache", entries.len());
+                    *self.hot_entries.blocking_write() = entries;
+                },
+                Err(e) => {
+                    error!("Memory Corruption Detected (Deserialize): {}", e);
+                    return self.recover_corrupt();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn recover_corrupt(&self) -> Result<()> {
+        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+        let corrupt_path = self.path.with_extension(format!("corrupt.{}", timestamp));
+        
+        if let Err(e) = std::fs::rename(&self.path, &corrupt_path) {
+            error!("Failed to rename corrupt memory file: {}", e);
+        } else {
+            error!("⚠️ Corrupt memory file moved to {:?}. Starting fresh.", corrupt_path);
         }
         Ok(())
     }

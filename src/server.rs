@@ -405,7 +405,7 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
             }
         });
 
-        // Forward global agency events (FPF Alignment)
+        // Forward global agency events
         let sender_c = state.tx.clone();
         tokio::spawn(async move {
             loop {
@@ -418,7 +418,7 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
                             crate::orchestrator::event_bus::AgencyEvent::PublicationUpdate { pc } => {
                                 format!("PUBLICATION_UPDATE:{}", serde_json::to_string(&pc).unwrap_or_default())
                             },
-                            _ => continue, // Ignore other internal events for now
+                            _ => continue,
                         };
                         if sender_c.send(msg).is_err() { break; }
                     },
@@ -444,22 +444,28 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
                             let _ = tx.send(format!("🚀 Request: Orchestrating Agency..."));
                             let result = supervisor.handle(&query).await;
                             
-                            if let Ok(res) = result {
-                                // SOTA: Final Answer Fallback
-                                // If the model was tagless, the tokens went to TechView. 
-                                // We send the final projected answer to ensure it appears in PlainView.
-                                let _ = tx.send(format!("FINAL_ANSWER:{}", res.answer));
+                            match result {
+                                Ok(res) => {
+                                    // SOTA: Final Answer Fallback
+                                    // If the model was tagless, the tokens went to TechView. 
+                                    // We send the final projected answer to ensure it appears in PlainView.
+                                    let _ = tx.send(format!("FINAL_ANSWER:{}", res.answer));
 
-                                if let Some(pub_obj) = res.publication {
-                                    let _ = tx.send(format!("RELIABILITY:{}", pub_obj.reliability));
-                                    let assurance_json = serde_json::json!({
-                                        "latency": pub_obj.telemetry.latency_ms,
-                                        "tools": pub_obj.telemetry.tool_calls,
-                                        "evidence": pub_obj.telemetry.evidence_count,
-                                        "scale": format!("{:?}", pub_obj.telemetry.scale),
-                                        "model": pub_obj.telemetry.model
-                                    });
-                                    let _ = tx.send(format!("ASSURANCE:{}", assurance_json));
+                                    if let Some(pub_obj) = res.publication {
+                                        let _ = tx.send(format!("RELIABILITY:{}", pub_obj.reliability));
+                                        let assurance_json = serde_json::json!({
+                                            "latency": pub_obj.telemetry.latency_ms,
+                                            "tools": pub_obj.telemetry.tool_calls,
+                                            "evidence": pub_obj.telemetry.evidence_count,
+                                            "scale": format!("{:?}", pub_obj.telemetry.scale),
+                                            "model": pub_obj.telemetry.model
+                                        });
+                                        let _ = tx.send(format!("ASSURANCE:{}", assurance_json));
+                                    }
+                                },
+                                Err(e) => {
+                                    let _ = tx.send(format!("THOUGHT:\n🛑 **Error during execution:**\n{}\n", e));
+                                    let _ = tx.send(format!("STATE:ABORTED"));
                                 }
                             }
                             

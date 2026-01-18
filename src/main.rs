@@ -48,7 +48,7 @@ impl Default for AgencyConfig {
         Self {
             memory_file: "memory.json".to_string(),
             session_file: "session.json".to_string(),
-            profile_file: "agency_profile.json".to_string(),
+            profile_file: "config/agency_profile.json".to_string(),
         }
     }
 }
@@ -181,7 +181,7 @@ async fn main() -> Result<()> {
     if args.len() > 1 && (args[1] == "--visualize" || args[1] == "-v") {
         let tool = VisualizationTool::new();
         let params = serde_json::json!({
-            "output_file": args.get(2).map(|s| s.as_str()).unwrap_or("agency_isometric.json")
+            "output_file": args.get(2).map(|s| s.as_str()).unwrap_or("config/agency_isometric.json")
         });
         match tool.execute(params).await {
             Ok(res) => {
@@ -258,7 +258,8 @@ async fn main() -> Result<()> {
     }
 
     // SOTA: Dynamic MCP Server Integration
-    if let Ok(content) = std::fs::read_to_string("mcp_servers.json") {
+    if let Ok(content) = std::fs::read_to_string("config/mcp_servers.json") {
+        info!("📂 Loading MCP Servers from config/mcp_servers.json...");
         if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(servers) = config["servers"].as_array() {
                 for server_cfg in servers {
@@ -322,6 +323,33 @@ async fn main() -> Result<()> {
     let shared_supervisor = Arc::new(Mutex::new(supervisor));
 
     // ──────────────────────────────────────────────────────────────────────────
+    // HYBRID MODE: Spawn Server EARLY (FPF Principle: Parallel Availability)
+    // ──────────────────────────────────────────────────────────────────────────
+    let (tx, _) = broadcast::channel(1024);
+    let server_shared_supervisor = shared_supervisor.clone();
+    let server_provider = provider.clone();
+    let server_speaker = shared_speaker.clone();
+    let server_episodic = episodic_memory.clone();
+    let server_tx = tx.clone();
+    let server_start_local = start_local.clone();
+
+    tokio::spawn(async move {
+        let server_state = AppState {
+            provider: server_provider,
+            start_local: server_start_local,
+            speaker: server_speaker,
+            tx: server_tx,
+            episodic_memory: server_episodic,
+            supervisor: server_shared_supervisor,
+            current_task: Arc::new(Mutex::new(None)),
+        };
+        
+        if let Err(e) = run_server(server_state).await {
+            eprintln!("❌ Server crashed: {}", e);
+        }
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
     // AUTONOMY: Durable Task Processing
     // ──────────────────────────────────────────────────────────────────────────
     {
@@ -339,6 +367,11 @@ async fn main() -> Result<()> {
                     let mut guard = supervisor_ref.lock().await;
                     guard.process_next_task().await.unwrap_or(false)
                 };
+                
+                // SOTA: Yield lock to allow UI/API queries to interleave
+                if processed {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
                 
                 if !processed {
                     idle_counter += 1;
@@ -433,28 +466,6 @@ async fn main() -> Result<()> {
             vocal_cords_clone.start_listening(queue).await;
         });
     }
-
-    let (tx, _) = broadcast::channel(1024);
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // HYBRID MODE: Spawn Server in Background
-    // ──────────────────────────────────────────────────────────────────────────
-    let server_state = AppState {
-        provider: provider.clone(),
-        start_local,
-        speaker: shared_speaker.clone(),
-        tx: tx.clone(),
-        episodic_memory: episodic_memory.clone(),
-        supervisor: shared_supervisor.clone(),
-        current_task: Arc::new(Mutex::new(None)),
-    };
-    
-    println!("🌐 Spawning Nexus Server (Background) at http://localhost:8002...");
-    tokio::spawn(async move {
-        if let Err(e) = run_server(server_state).await {
-            eprintln!("❌ Server crashed: {}", e);
-        }
-    });
 
     // ──────────────────────────────────────────────────────────────────────────
     // LAUNCH INTERFACE

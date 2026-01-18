@@ -50,7 +50,7 @@ if [ "$AGENCY_ENABLE_MOUTH" = "1" ]; then
         echo "⚠️  Port $PORT is already in use. Assuming Speaker Server is running."
     else
         echo "🔊 Starting Speaker Server on port $PORT..."
-        ./target/release/speaker_server > speaker_server.log 2>&1 &
+        ./target/release/speaker_server > logs/speaker_server.log 2>&1 &
         SPEAKER_PID=$!
         echo "   Speaker Server PID: $SPEAKER_PID"
     fi
@@ -61,7 +61,7 @@ fi
 # 2. Listener Server
 if [ "$AGENCY_ENABLE_EARS" = "1" ]; then
     echo "👂 Starting Listener Server (Whisper)..."
-    ./target/release/listener_server > listener_server.log 2>&1 &
+    ./target/release/listener_server > logs/listener_server.log 2>&1 &
     LISTENER_PID=$!
     echo "   Listener Server PID: $LISTENER_PID"
 else
@@ -74,7 +74,7 @@ if lsof -Pi :$MEM_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "⚠️  Port $MEM_PORT is already in use. Assuming Memory Server is running."
 else
     echo "🧠 Starting Memory Server on port $MEM_PORT..."
-    ./target/release/memory_server > memory_server.log 2>&1 &
+    ./target/release/memory_server > logs/memory_server.log 2>&1 &
     MEMORY_PID=$!
     echo "   Memory Server PID: $MEMORY_PID"
 fi
@@ -108,5 +108,5 @@ if [ "$#" -gt 0 ]; then
     "$@"
 else
     echo "🤖 Starting Nexus Server (Main App)..."
-    ./target/release/nexus_server 2>&1 | tee nexus_server.log
+    ./target/release/nexus_server 2>&1 | tee logs/nexus_server.log
 fi

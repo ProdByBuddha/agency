@@ -155,10 +155,9 @@ impl CandleProvider {
         let mut models = self.models.lock().await;
         
         // Load registry from file
-        let registry_path = "agency_models.json";
+        let registry_path = "config/agency_models.json";
         let registry_file = File::open(registry_path).context("Failed to open agency_models.json")?;
         let registry: Registry = serde_json::from_reader(registry_file).context("Failed to parse agency_models.json")?;
-
         // Resolve alias if needed
         let resolved_name = if let Some(actual_name) = registry.defaults.get(model_name) {
             actual_name.as_str()

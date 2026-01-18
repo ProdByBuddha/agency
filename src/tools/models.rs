@@ -47,14 +47,14 @@ pub struct ModelManager;
 
 impl ModelManager {
     fn load_registry(&self) -> AgentResult<Registry> {
-        let file = File::open("agency_models.json").map_err(|e| AgentError::Io(e))?;
+        let file = File::open("config/agency_models.json").map_err(|e| AgentError::Io(e))?;
         let registry: Registry = serde_json::from_reader(file).map_err(|e| AgentError::Serde(e))?;
         Ok(registry)
     }
 
     fn save_registry(&self, registry: &Registry) -> AgentResult<()> {
         let json = serde_json::to_string_pretty(registry).map_err(|e| AgentError::Serde(e))?;
-        let mut file = File::create("agency_models.json").map_err(|e| AgentError::Io(e))?;
+        let mut file = File::create("config/agency_models.json").map_err(|e| AgentError::Io(e))?;
         file.write_all(json.as_bytes()).map_err(|e| AgentError::Io(e))?;
         Ok(())
     }

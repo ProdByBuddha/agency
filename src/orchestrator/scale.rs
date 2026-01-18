@@ -52,7 +52,7 @@ pub struct ScaleProfile {
 impl ScaleProfile {
     pub fn new(complexity: f32, vram_available_gb: f32) -> Self {
         // Load defaults from registry
-        let defaults = if let Ok(file) = File::open("agency_models.json") {
+        let defaults = if let Ok(file) = File::open("config/agency_models.json") {
             if let Ok(registry) = serde_json::from_reader::<_, Registry>(file) {
                 registry.defaults
             } else {
@@ -93,7 +93,7 @@ impl ScaleProfile {
     }
 
     pub fn new_with_class(class: ScaleClass, vram_available_gb: f32) -> Self {
-        let defaults = if let Ok(file) = File::open("agency_models.json") {
+        let defaults = if let Ok(file) = File::open("config/agency_models.json") {
             if let Ok(registry) = serde_json::from_reader::<_, Registry>(file) {
                 registry.defaults
             } else {

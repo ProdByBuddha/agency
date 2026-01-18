@@ -29,7 +29,7 @@ impl Tool for VisualizationTool {
                 "output_file": {
                     "type": "string",
                     "description": "Optional name for the output JSON file",
-                    "default": "agency_isometric.json"
+                    "default": "config/agency_isometric.json"
                 }
             }
         })
@@ -45,7 +45,7 @@ impl Tool for VisualizationTool {
     }
 
     async fn execute(&self, parameters: Value) -> AgentResult<ToolOutput> {
-        let output_file = parameters["output_file"].as_str().unwrap_or("agency_isometric.json");
+        let output_file = parameters["output_file"].as_str().unwrap_or("config/agency_isometric.json");
 
         let diagram = json!({
             "title": "SOTA Semi-Autonomous Agency Architecture",

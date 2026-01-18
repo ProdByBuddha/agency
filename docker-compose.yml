@@ -2,7 +2,7 @@ services:
   speaker:
     build:
       context: .
-      dockerfile: Dockerfile.speaker
+      dockerfile: docker/Dockerfile.speaker
     container_name: agency-speaker
     ports:
       - "8001:8001"

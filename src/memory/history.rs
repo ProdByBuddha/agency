@@ -21,8 +21,7 @@ use std::os::unix::fs::PermissionsExt;
 use fs2::FileExt;
 
 /// Filename that stores the message history
-const HISTORY_FILENAME: &str = "agency_history.jsonl";
-
+    const HISTORY_FILENAME: &str = "data/agency_history.jsonl";
 /// When history exceeds the hard cap, trim it down to this fraction of `max_bytes`.
 const HISTORY_SOFT_CAP_RATIO: f64 = 0.8;
 

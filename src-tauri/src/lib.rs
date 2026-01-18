@@ -154,7 +154,7 @@ pub fn run() {
             tools.register_instance(ForgeTool::new("custom_tools", tools.clone())).await;
             tools.register_instance(SystemTool::new(manager.clone())).await;
 
-            let profile_manager = ProfileManager::new("agency_profile.json");
+            let profile_manager = ProfileManager::new("config/agency_profile.json");
             let profile = profile_manager.load().await.unwrap_or_default();
 
             let mut supervisor = Supervisor::new_with_provider(provider.clone(), tools.clone())

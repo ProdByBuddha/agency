@@ -11,7 +11,7 @@ if [ -z "$BIN_PATH" ]; then
     exit 1
 fi
 
-CONFIG_PATH="./otel-config.yaml"
+CONFIG_PATH="./config/otel-config.yaml"
 SB_PROFILE="./scripts/otel-collector.sb"
 
 echo "🛡️  Starting OpenTelemetry Collector in Seatbelt Sandbox..."

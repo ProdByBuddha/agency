@@ -1,30 +1,30 @@
 [submodule "candle"]
-	path = candle
+	path = crates/candle
 	url = https://github.com/ProdByBuddha/candle.git
 [submodule "FPF"]
-	path = FPF
+	path = crates/FPF
 	url = https://github.com/ailev/FPF.git
 [submodule "FossFLOW"]
-	path = FossFLOW
+	path = crates/FossFLOW
 	url = https://github.com/ProdByBuddha/FossFLOW.git
 [submodule "onnx"]
-	path = onnx
+	path = crates/onnx
 	url = https://github.com/ProdByBuddha/onnx.git
 [submodule "onnxruntime"]
-	path = onnxruntime
+	path = crates/onnxruntime
 	url = https://github.com/ProdByBuddha/onnxruntime.git
 [submodule "ort"]
-	path = ort
+	path = crates/ort
 	url = https://github.com/ProdByBuddha/ort.git
 [submodule "Personal_AI_Infrastructure"]
-	path = Personal_AI_Infrastructure
+	path = crates/Personal_AI_Infrastructure
 	url = https://github.com/danielmiessler/Personal_AI_Infrastructure
 [submodule "arti"]
-	path = arti
+	path = crates/arti
 	url = https://gitlab.torproject.org/tpo/core/arti.git
 [submodule "dsgm"]
-	path = dsgm
+	path = crates/dsgm
 	url = https://github.com/prodbybuddha/dsgm
 [submodule "infra-as-an-organism"]
-	path = infra-as-an-organism
+	path = crates/infra-as-an-organism
 	url = https://github.com/prodbybuddha/infra-as-an-organism
