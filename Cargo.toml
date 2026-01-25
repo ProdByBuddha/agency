@@ -129,7 +129,7 @@ teloxide = { version = "0.13", features = ["macros"] }
 matrix-sdk = { version = "0.7", default-features = false, features = ["rustls-tls"] }
 k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
 alloy-rlp = { version = "0.3", features = ["derive"] }
-alloy-primitives = { version = "0.8", features = ["serde"] }
+alloy-primitives = { version = "1.5", features = ["serde"] }
 bs58 = "0.5"
 
 # Tor/Arti for Anonymous A2A
