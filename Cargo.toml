@@ -42,9 +42,9 @@ wasmer = "4.2"
 
 tokenizers = "0.20"
 ndarray = "0.15.6"
-ndarray-rand = "0.14"
+ndarray-rand = "0.16"
 rand = "0.8"
-safetensors = "0.4"
+safetensors = "0.7"
 half = "2.5"
 rustfft = "6.2"
 
@@ -121,7 +121,7 @@ prost-types = "0.13"
 
 # Persistent Task Queue
 rusqlite = { version = "0.38.0", features = ["bundled"] }
-tokio-cron-scheduler = "0.9"
+tokio-cron-scheduler = "0.15"
 rss = "2.0"
 notify = "6.1"
 enigo = "0.2"
@@ -129,7 +129,7 @@ teloxide = { version = "0.13", features = ["macros"] }
 matrix-sdk = { version = "0.7", default-features = false, features = ["rustls-tls"] }
 k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
 alloy-rlp = { version = "0.3", features = ["derive"] }
-alloy-primitives = { version = "0.8", features = ["serde"] }
+alloy-primitives = { version = "1.5", features = ["serde"] }
 bs58 = "0.5"
 
 # Tor/Arti for Anonymous A2A
