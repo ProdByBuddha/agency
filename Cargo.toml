@@ -44,7 +44,7 @@ tokenizers = "0.20"
 ndarray = "0.15.6"
 ndarray-rand = "0.14"
 rand = "0.8"
-safetensors = "0.4"
+safetensors = "0.7"
 half = "2.5"
 rustfft = "6.2"
 
