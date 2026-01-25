@@ -10157,7 +10157,7 @@ dependencies = [
  "rubato",
  "rusqlite",
  "rustfft",
- "safetensors 0.4.5",
+ "safetensors 0.7.0",
  "schemars 0.8.22",
  "screenshots",
  "serde",
