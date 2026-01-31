@@ -81,7 +81,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 tracing-opentelemetry = "0.27"
-opentelemetry = "0.26"
+opentelemetry = "0.31"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.26"
 konst = "0.3"
