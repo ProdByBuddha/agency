@@ -84,7 +84,7 @@ tracing-opentelemetry = "0.27"
 opentelemetry = "0.26"
 opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.26"
-konst = "0.3"
+konst = "0.4"
 memmap2 = "0.9"
 aes-gcm = "0.10"
 hex = "0.4"
