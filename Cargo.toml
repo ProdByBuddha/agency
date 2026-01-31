@@ -58,7 +58,7 @@ byteorder = "1.5"
 # Vision & Capture
 nokhwa = { version = "0.10", features = ["input-native"] }
 screenshots = "0.8"
-image = "0.24"
+image = "0.25"
 
 # Peripheral Access & System Awareness
 nusb = "0.1"
